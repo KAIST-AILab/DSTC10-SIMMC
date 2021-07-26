@@ -1,5 +1,5 @@
-# gdown --id 1Y8iJ5vr2sOKrJ-B7znrUAAzx0Gzj2bof
-# tar -xzvf simmc.tar.gz && rm simmc.tar.gz
+gdown --id 1Y8iJ5vr2sOKrJ-B7znrUAAzx0Gzj2bof
+tar -xzvf simmc.tar.gz && rm simmc.tar.gz
 
 cd data
 unzip simmc2_scene_images_dstc10_public_part1.zip && rm simmc2_scene_images_dstc10_public_part1.zip
