@@ -1,0 +1,459 @@
+import attr
+
+from attr.validators import instance_of
+from typing import List
+
+'''
+    Fashion Metadata
+'''
+
+FASHION_ALL_SIZES = (
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL"
+)
+
+FASHION_BRAND = (
+    "212 Local",
+    "Art Den",
+    "Art News Today",
+    "Brain Puzzles",
+    "Cats Are Great",
+    "Coats & More",
+    "Downtown Consignment",
+    "Downtown Stylists",
+    "Fancy Nails",
+    "Garden Retail",
+    "Glam Nails",
+    "Global Voyager",
+    "HairDo",
+    "Home Store",
+    "Modern Arts",
+    "Nature Photographers",
+    "New Fashion",
+    "North Lodge",
+    "Ocean Wears",
+    "Pedals & Gears",
+    "River Chateau",
+    "StyleNow Feed",
+    "The Vegan Baker",
+    "Uptown Gallery",
+    "Uptown Studio",
+    "Yogi Fit"
+)
+
+FASHION_COLOR = (
+    "beige",
+    "black",
+    "black, grey",
+    "black, olive",
+    "black, orange",
+    "black, red",
+    "black, red, white",
+    "black, white",
+    "blue",
+    "blue, black",
+    "blue, green",
+    "blue, grey",
+    "blue, white",
+    "brown",
+    "brown, black",
+    "brown, white",
+    "dark blue",
+    "dark brown",
+    "dark green",
+    "dark green, dark blue",
+    "dark grey",
+    "dark pink",
+    "dark pink, white",
+    "dark red",
+    "dark violet",
+    "dark yellow",
+    "dirty green",
+    "dirty grey",
+    "golden",
+    "green",
+    "green, black",
+    "green, violet, pink",
+    "green, white",
+    "grey",
+    "grey, black",
+    "grey, blue",
+    "grey, brown",
+    "grey, white",
+    "light blue",
+    "light blue, light green",
+    "light grey",
+    "light orange",
+    "light pink",
+    "light red",
+    "maroon",
+    "maroon, white, blue",
+    "olive",
+    "olive, black",
+    "olive, white",
+    "orange",
+    "orange, purple",
+    "pink",
+    "pink, black",
+    "pink, white",
+    "purple",
+    "red",
+    "red, black",
+    "red, grey",
+    "red, white",
+    "red, white, yellow",
+    "violet",
+    "white",
+    "white, black",
+    "white, black, red",
+    "white, blue",
+    "white, grey",
+    "white, red, violet",
+    "yellow",
+    "yellow, black",
+    "yellow, brown",
+    "yellow, white"
+)
+
+FASHION_PATTERN = (
+    "camouflage",
+    "canvas",
+    "cargo",
+    "checkered",
+    "checkered, plain",
+    "denim",
+    "design",
+    "diamonds",
+    "dotted",
+    "floral",
+    "heavy stripes",
+    "heavy vertical stripes",
+    "holiday",
+    "horizontal stripes",
+    "knit",
+    "leafy design",
+    "leapard print",
+    "leather",
+    "light spots",
+    "light stripes",
+    "light vertical stripes",
+    "multicolored",
+    "plaid",
+    "plain",
+    "plain with stripes on side",
+    "radiant",
+    "spots",
+    "star design",
+    "streaks",
+    "stripes",
+    "text",
+    "twin colors",
+    "velvet",
+    "vertical design",
+    "vertical stripes",
+    "vertical striples"
+)
+
+FASHION_SLEEVE_LENGTH = (
+    "",
+    "full",
+    "half",
+    "long",
+    "short",
+    "sleeveless"
+)
+
+FASHION_ASSET_TYPE = (
+    "blouse_display",
+    "blouse_hanging",
+    "dress_hanging",
+    "jacket_display",
+    "jacket_hanging",
+    "tshirt_display",
+    "tshirt_folded",
+    "trousers_display",
+    "tshirt_hanging",
+    "hat",
+    "shoes",
+    "skirt"
+)
+
+FASHION_TYPE = (
+    "blouse",
+    "coat",
+    "dress",
+    "hat",
+    "hoodie",
+    "jacket",
+    "jeans",
+    "joggers",
+    "shirt",
+    "shirt, vest",
+    "shoes",
+    "skirt",
+    "suit",
+    "sweater",
+    "tank top",
+    "trousers",
+    "tshirt",
+    "vest"
+)
+
+'''
+    Furniture Metadata
+'''
+
+FURNITURE_BRAND = (
+    "212 Local",
+    "Art Den",
+    "Downtown Consignment",
+    "Downtown Stylists",
+    "Global Voyager",
+    "Home Store",
+    "Modern Arts",
+    "North Lodge",
+    "River Chateau",
+    "StyleNow Feed",
+    "Uptown Gallery",
+    "Uptown Studio"
+)
+
+FURNITURE_COLOR = (
+    "black",
+    "black and white",
+    "blue",
+    "brown",
+    "green",
+    "grey",
+    "red",
+    "white",
+    "wooden"
+)
+
+FURNITURE_MATERIALS = (
+    "leather",
+    "marble",
+    "memory foam",
+    "metal",
+    "natural fibers",
+    "wood",
+    "wool"
+)
+
+FURNITURE_TYPE = {
+    "AreaRug",
+    "Bed",
+    "Chair",
+    "CoffeeTable",
+    "CouchChair",
+    "EndTable",
+    "Lamp",
+    "Shelves",
+    "Sofa",
+    "Table"
+ }
+
+
+@attr.s
+class FashionMetadata:
+    name: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    asset_type: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    customer_review: float = attr.ib(
+        converter=float,
+        validator=instance_of(float)
+    )
+    available_sizes: List[str] = attr.ib(
+        converter=lambda x: [str(_) for _ in x],
+        validator=instance_of(list)
+    )
+    color: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    pattern: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    brand: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    sleeve_length: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    type: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    price: float = attr.ib(
+        converter=float,
+        validator=instance_of(float)
+    )
+    size: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+
+    @staticmethod
+    def check_in(attribute, value, listing):
+        """Universal checker that validates if value is in the given list."""
+        if value not in listing:
+            raise ValueError("{} must be one of {}, but received {}.".format(attribute.name, listing, value))
+    
+    @asset_type.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FASHION_ASSET_TYPE)
+    
+    @brand.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FASHION_BRAND)
+
+    @pattern.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FASHION_PATTERN)
+    
+    @color.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FASHION_COLOR)
+    
+    @sleeve_length.validator
+    def check(self, attribute, value):
+        self.check_in(attribute ,value, FASHION_SLEEVE_LENGTH)
+
+    @type.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FASHION_TYPE)
+
+    @available_sizes.validator
+    def check(self, attribute, value):
+        common = set(value) & set(FASHION_ALL_SIZES)
+        if len(common) < 1:
+            raise ValueError("Available sizes must be one of {}, but receieved {}.".format(FASHION_ALL_SIZES, value))
+
+    @size.validator
+    def check(self, attribute, value):
+        listing = getattr(self, "available_sizes")
+        self.check_in(attribute, value, listing)
+
+    @customer_review.validator
+    def check(self, attribute, value):
+        if not (0.0 <= value <= 5.0):
+            raise ValueError("Rating must be in range [0.0, 5.0].")
+@attr.s
+class FurnitureMetadata:
+    name: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    brand: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    color: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    customer_review: float = attr.ib(
+        converter=float,
+        validator=instance_of(float)
+    )
+    materials: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    price: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+    type: str = attr.ib(
+        converter=str,
+        validator=instance_of(str)
+    )
+
+    @staticmethod
+    def check_in(attribute, value, listing):
+        """Universal checker that validates if value is in the given list."""
+        if value not in listing:
+            raise ValueError("{} must be one of {}, but received {}.".format(attribute.name, listing, value))
+
+    @brand.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FURNITURE_BRAND)
+    
+    @color.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FURNITURE_COLOR)
+
+    @materials.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FURNITURE_MATERIALS)
+
+    @type.validator
+    def check(self, attribute, value):
+        self.check_in(attribute, value, FURNITURE_TYPE)
+
+    @customer_review.validator
+    def check(self, attribute, value):
+        if not (0.0 <= value <= 5.0):
+            raise ValueError("Rating must be in range [0.0, 5.0].")
+
+if __name__ == "__main__":
+    """
+        Testing out the attrs validated objects (read from json).
+    """
+    import re
+    import json
+    import pickle
+
+    from pprint import pprint
+
+    """
+        Converts each key from CamelCase to snake_case.
+        Also changes some key names to be more consistent
+        across dataset.
+    """
+    _underscore1 = re.compile(r'(.)([A-Z][a-z]+)')
+    _underscore2 = re.compile(r'([a-z0-9])([A-Z])')
+    def key_map(key):
+        subbed = _underscore1.sub(r'\1_\2', key)
+        subbed = _underscore2.sub(r'\1_\2', subbed).lower()
+        if subbed in ("customer_review", "customer_rating"):
+            return "customer_review"
+        return subbed
+
+    FASHION_JSON = "data/fashion_prefab_metadata_all.json"
+    FURNITURE_JSON = "data/furniture_prefab_metadata_all.json"
+
+    fashion_items = json.load(open(FASHION_JSON, 'r'))
+    fashion_items = [
+        FashionMetadata(
+            name=key,
+            **{key_map(k): v for k,v in value.items()}
+        ) for key, value in fashion_items.items()
+    ]
+    print("Fashion items (first 5) : ")
+    pprint(fashion_items[:5])
+
+    furniture_items = json.load(open(FURNITURE_JSON, 'r'))
+    furniture_items = [
+        FurnitureMetadata(
+            name=key,
+            **{key_map(k): v for k,v in value.items()}
+        ) for key, value in furniture_items.items()
+    ]
+    print("Furniture items (first 5) : ")
+    pprint(furniture_items[:5])
+
+    pickle.dump(fashion_items, open("fashion_meta.pkl", "wb"))
+    pickle.dump(furniture_items, open("furniture_meta.pkl", "wb"))
