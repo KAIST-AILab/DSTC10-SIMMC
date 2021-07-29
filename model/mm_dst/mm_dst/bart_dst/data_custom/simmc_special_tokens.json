@@ -1,0 +1,1 @@
+{"eos_token": "<EOS>", "additional_special_tokens": ["<EOB>", "<SOM>", "<EOM>", "sleeveLength", "type", "availableSizes", "customerRating", "pattern", "customerReview", "materials", "REQUEST:COMPARE", "INFORM:DISAMBIGUATE", "REQUEST:GET", "INFORM:GET", "ASK:GET", "brand", "size", "REQUEST:ADD_TO_CART", "color", "price", "INFORM:REFINE"]}
