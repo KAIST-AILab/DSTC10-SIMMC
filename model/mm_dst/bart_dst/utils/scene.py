@@ -98,7 +98,7 @@ class Scene:
         converter=str,
         validator=validators.instance_of(str)
     )
-    scene_image: np.ndarray = attr.ib()
+    # scene_image: np.ndarray = attr.ib()
     scene_object: SceneObject = attr.ib()
     camera_object: CameraObject = attr.ib()
 
@@ -110,16 +110,15 @@ class Scene:
             bbox_json = join(DATA_DIR, "jsons", "{}_bbox.json".format(value))
             
         scene_json = join(DATA_DIR, "jsons", "{}_scene.json".format(value))
-        # scene_image = join("..", "data", "images", "{}.png".format(value))
-        if value.startswith('m_'):  # no file starting with "n_"
-            scene_image = join(DATA_DIR, "jsons", "{}_bbox.json".format(value[2:]))
-        else:
-            scene_image = join(DATA_DIR, "jsons", "{}_bbox.json".format(value))
+        # if value.startswith('m_'): 
+        #     scene_image = join(DATA_DIR, "images", "{}.png".format(value[2:]))
+        # else:
+        #     scene_image = join(DATA_DIR, "images", "{}.png".format(value))
 
         if not (
             isfile(bbox_json)\
-                and isfile(scene_json)\
-                    and isfile(scene_image)
+                and isfile(scene_json)
+                    #and isfile(scene_image)
         ):
             raise ValueError("All required scene files do not exist!")
 
@@ -185,7 +184,8 @@ class Scene:
                 join(DATA_DIR, "jsons", "{}_scene.json".format(scene_name))
             )
         )
-        image = cv2.imread(join(DATA_DIR, "images", "{}.png".format(scene_name)))
+        # I guess we don't need image
+        # image = cv2.imread(join(DATA_DIR, "images", "{}.png".format(scene_name)))
 
         # Define camera object
         camera_args = dict()
@@ -235,7 +235,7 @@ class Scene:
 
         scene_args = {
             'scene_name': scene_name,
-            'scene_image': image,
+            # 'scene_image': image,
             'scene_object': scene_obj,
             'camera_object': camera_obj
         }

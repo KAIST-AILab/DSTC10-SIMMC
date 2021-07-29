@@ -82,9 +82,11 @@ class PromptAPI:
         objects = list(map(int, belief_state.split('<')[1].split('>')[0].replace(' ', '').split(',')))
         
 
+if __name__ == "__main__":
+    prompt_api = PromptAPI('train')
+    # metadata = prompt_api.given_scene_objid_get_meta('cloth_store_1_1_1', obj_unique_id=0)
+    # print('print metadata', metadata)
+    metas = prompt_api.given_scene_get_all_meta('m_cloth_store_1416238_woman_3_8')
+    print(metas)
 
-
-# prompt_api = PromptAPI('train')
-# metadata = prompt_api.given_scene_objid_get_meta('cloth_store_1_1_1', obj_unique_id=0)
-# print('print metadata', metadata)
-# metas = prompt_api.given_scene_get_all_meta('m_cloth_store_1416238_woman_3_8')
+    
