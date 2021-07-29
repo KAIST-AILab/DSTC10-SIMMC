@@ -5,7 +5,7 @@ from typing import Dict, List
 import attr
 from attr.validators import instance_of
 
-from utils.util import find_data_dir
+from util import find_data_dir
 
 DIALOGUE_ACTS = ("INFORM", "CONFIRM", "REQUEST", "ASK")
 ACTIVITIES = ("GET", "DISAMBIGUATE", "REFINE", "ADD_TO_CART", "COMPARE")
