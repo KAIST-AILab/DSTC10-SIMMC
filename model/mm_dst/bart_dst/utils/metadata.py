@@ -3,7 +3,7 @@ import attr
 
 from attr.validators import instance_of
 from typing import List
-from util import find_data_dir
+from .util import find_data_dir
 
 import re
 import json

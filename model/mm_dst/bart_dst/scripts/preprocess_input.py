@@ -45,7 +45,7 @@ if __name__ == "__main__":
         "--use_multimodal_contexts",
         help="determine whether to use the multimodal contexts each turn",
         type=int,
-        defalut=1,
+        default=1,
     )
     parser.add_argument(
         "--use_scene_ids",
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     len_context = args.len_context
     use_multimodal_contexts = bool(args.use_multimodal_contexts)
     use_scene_ids = bool(args.use_scene_ids)
-    use_metainfo = bool(use_metainfo)
+    use_metainfo = bool(args.use_metainfo)
 
     # DEBUG:
     print("Belief states: {}".format(args.use_belief_states))

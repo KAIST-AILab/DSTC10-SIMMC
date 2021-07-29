@@ -1,9 +1,5 @@
 import pickle
 
-from metadata import FashionMetadata, FurnitureMetadata
-from dialogue import AllDialogues
-from scene import Scene
-
 
 def load_pickle(pickle_type: str=None, pickle_specific_name: str=None):
     """

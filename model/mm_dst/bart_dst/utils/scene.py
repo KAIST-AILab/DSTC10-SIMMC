@@ -1,17 +1,14 @@
-import os
-import attr
-import json
 import glob
-from pathlib import Path
+import json
+from os.path import isfile, join
+from typing import List, Optional
 
+import attr
 import cv2
 import numpy as np
-
-from typing import List, Optional
 from attr import converters, validators
-from os.path import isfile, join
-from util import find_data_dir
 
+from .util import find_data_dir
 
 DATA_DIR = find_data_dir('ours')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 
