@@ -389,8 +389,9 @@ command line""",
 
                 # Remove all text after the stop token
                 text = text[: text.find(args.stop_token) if args.stop_token else None]
-                text = remove_prefix(text, '</s><s> ')
-                print('generated text:', text)
+                if 'bart' in args.model_type:
+                    text = remove_prefix(text, '</s><s> ') + "<EOS>"
+                # print('generated text:', text)
                 # Add the prompt at the beginning of the sequence. Remove the
                 # excess text that was used for pre-processing
                 if 'bart' in args.model_type:
