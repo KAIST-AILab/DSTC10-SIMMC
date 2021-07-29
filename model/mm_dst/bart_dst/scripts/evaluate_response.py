@@ -11,9 +11,6 @@ root directory of this source tree.
     and compute BLEU score.
 """
 import argparse
-import json
-from gpt2_dst.utils.convert import parse_flattened_results_from_file
-from utils.evaluate_dst import evaluate_from_flat_list
 
 import nltk
 import numpy as np

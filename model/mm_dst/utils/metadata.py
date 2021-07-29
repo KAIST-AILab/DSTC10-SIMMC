@@ -1,13 +1,12 @@
-import os
-import attr
-
-from attr.validators import instance_of
-from typing import List
-from .util import find_data_dir
-
-import re
 import json
+import os
+import re
+from typing import List
 
+import attr
+from attr.validators import instance_of
+
+from utils.util import find_data_dir
 
 DATA_DIR = find_data_dir('ours')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 

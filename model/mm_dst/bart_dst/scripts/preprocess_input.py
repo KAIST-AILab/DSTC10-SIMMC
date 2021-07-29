@@ -14,7 +14,7 @@ root directory of this source tree.
 
 print('start!')
 
-from bart_dst.utils.convert import convert_json_to_flattened
+from bart_dst.scripts.convert import convert_json_to_flattened
 import argparse
 
 if __name__ == "__main__":

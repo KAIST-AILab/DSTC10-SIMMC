@@ -17,9 +17,9 @@ import os
 from functools import partial
 from itertools import chain
 
-from gpt2_dst.utils.convert import represent_visual_objects
-
-from . import api
+from gpt2_dst.scripts.convert import (parse_flattened_results_from_file,
+                                      represent_visual_objects)
+from utils import api
 
 # DSTC style dataset fieldnames
 FIELDNAME_DIALOG = "dialogue"

@@ -11,7 +11,7 @@ root directory of this source tree.
     The reformatted data is used as input for the GPT-2 based
     DST model baseline.
 """
-from gpt2_dst.utils.convert import convert_json_to_flattened
+from gpt2_dst.scripts.convert import convert_json_to_flattened
 import argparse
 
 if __name__ == "__main__":
