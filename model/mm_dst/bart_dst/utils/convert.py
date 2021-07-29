@@ -217,6 +217,9 @@ def convert_json_to_flattened(
                         metainfo=obj_meta_str,
                         START_BELIEF_STATE=START_BELIEF_STATE,
                     )
+                    predicts.append(predict)
+
+                    
                 else:
                     # Format the main input
                     predict = TEMPLATE_PREDICT.format(
@@ -225,16 +228,16 @@ def convert_json_to_flattened(
                     )
                     predicts.append(predict)
 
-                    # Format the main output
-                    target = TEMPLATE_TARGET.format(
-                        context=context,
-                        START_BELIEF_STATE=START_BELIEF_STATE,
-                        belief_state=str_belief_state,
-                        END_OF_BELIEF=END_OF_BELIEF,
-                        response=asst_uttr,
-                        END_OF_SENTENCE=END_OF_SENTENCE,
-                    )
-                    targets.append(target)
+                # Format the main output
+                target = TEMPLATE_TARGET.format(
+                    context=context,
+                    START_BELIEF_STATE=START_BELIEF_STATE,
+                    belief_state=str_belief_state,
+                    END_OF_BELIEF=END_OF_BELIEF,
+                    response=asst_uttr,
+                    END_OF_SENTENCE=END_OF_SENTENCE,
+                )
+                targets.append(target)
             else:
                 # Format the main input
                 predict = TEMPLATE_PREDICT_NOBELIEF.format(
@@ -376,16 +379,16 @@ def parse_flattened_result(to_parse):
 
     return belief
 
-input_path_json = '/home/haeju/Dev/dstc/dstc10/ours/data/simmc2_dials_dstc10_train.json'
-output_path_predict= '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_predict.txt'
-output_path_target = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_target.txt'
-output_path_special_tokens = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc_special_tokens.json'
-len_context=2
-input_path_special_tokens = ""
-use_multimodal_contexts = True
-use_belief_states = True
-use_scene_ids = True
-use_metainfo = True
+# input_path_json = '/home/haeju/Dev/dstc/dstc10/ours/data/simmc2_dials_dstc10_train.json'
+# output_path_predict= '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_predict.txt'
+# output_path_target = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_target.txt'
+# output_path_special_tokens = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc_special_tokens.json'
+# len_context=2
+# input_path_special_tokens = ""
+# use_multimodal_contexts = True
+# use_belief_states = True
+# use_scene_ids = True
+# use_metainfo = True
 
 if __name__ == '__main__':
     convert_json_to_flattened(
