@@ -154,7 +154,6 @@ def convert_json_to_flattened(
                         this_turn_scene_id = idx_scene[i][1]
 
                 # get objects' meta info in the scene
-                print(this_turn_scene_id)
                 scene_objs = prompt_api.given_scene_get_all_meta(this_turn_scene_id)
                 scene_obj_dict = {}
 
@@ -253,7 +252,6 @@ def convert_json_to_flattened(
                     START_OF_RESPONSE=START_OF_RESPONSE,
                 )
                 targets.append(target)
-
     # Create a directory if it does not exist
     directory = os.path.dirname(output_path_predict)
     if not os.path.exists(directory):
@@ -379,16 +377,16 @@ def parse_flattened_result(to_parse):
 
     return belief
 
-# input_path_json = '/home/haeju/Dev/dstc/dstc10/ours/data/simmc2_dials_dstc10_train.json'
-# output_path_predict= '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_predict.txt'
-# output_path_target = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_target.txt'
-# output_path_special_tokens = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc_special_tokens.json'
-# len_context=2
-# input_path_special_tokens = ""
-# use_multimodal_contexts = True
-# use_belief_states = True
-# use_scene_ids = True
-# use_metainfo = True
+input_path_json = '/home/haeju/Dev/dstc/dstc10/ours/data/simmc2_dials_dstc10_train.json'
+output_path_predict= '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_predict.txt'
+output_path_target = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_target.txt'
+output_path_special_tokens = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc_special_tokens.json'
+len_context=2
+input_path_special_tokens = ""
+use_multimodal_contexts = True
+use_belief_states = True
+use_scene_ids = True
+use_metainfo = True
 
 if __name__ == '__main__':
     convert_json_to_flattened(
