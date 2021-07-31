@@ -10,7 +10,7 @@ from attr import converters, validators
 
 from util import find_data_dir
 
-DATA_DIR = find_data_dir('ours')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
+DATA_DIR = find_data_dir('DSTC10-SIMMC')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 
 @attr.s
 class SceneObject:
@@ -252,8 +252,9 @@ class Store:
             )
         )
         
-        print('files:', files)
+        # print('files:', files)
 
+        # Caution that this may return more than 1 scene depending on name (Ex. cloth_store_1)
         return cls([
             Scene.from_json('_'.join(f.split('/')[-1].split('_')[:-1]).replace(".json", '')) for f in files
         ])

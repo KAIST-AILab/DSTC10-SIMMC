@@ -1,3 +1,5 @@
+import math
+import numpy as np
 from dialogue import main_function as dialogue_main_function
 from metadata import main_function as metadata_main_function
 from scene import Scene
@@ -37,7 +39,7 @@ class PromptAPI:
                         if meta.name == obj.prefab_path:
                             return meta  # instance of {Fashion|Furniture}Metadata
     
-    def given_scene_get_all_meta(self, scene_name: str):
+    def given_scene_get_all_obj_info(self, scene_name: str):
         scene = Scene.from_json(scene_name)
         if 'cloth' in scene_name:
             domain_metadata = self.fashion_meta
@@ -73,13 +75,104 @@ class PromptAPI:
                 slot[k] = v
         request_slot = belief_state.split('(')[1].split(')')[0].replace(' ', '').split(',')
         objects = list(map(int, belief_state.split('<')[1].split('>')[0].replace(' ', '').split(',')))
-        
+
+    def dial_data_returner(self, len_history=2):
+        """
+        returns dial data including coref and belief state. this does not make any kind of a file, but just returns a list, because it's more flexible.
+        len_history: length of history (1 user uttr + 1 system uttr = 1 history). 
+        Total utterance for each time is therefore 2*len_history + 1 (current user utter)
+
+        [
+            {  // start of a dialogue
+                domain: dialogue's domain
+                dialogues: [
+                    {'context': history_1 + user_uttr_1 as list, 'belief': belief_1 dict},
+                    {'context': history_2 + user_uttr_2 as list, 'belief': belief_2 dict},
+                    ...
+                ]
+                scene_objects: {
+                    'scene_id_1': {
+                    0: 0-th object's meta info, in dictionary format
+                    1: 1-th object's meta info, in dictionary format
+                    ...
+                    },
+                    'scene_id_2': {
+                    0: 0-th object's meta info, in dictionary format
+                    1: 1-th object's meta info, in dictionary format
+                    ...
+                    },
+                    ...
+                }
+            }  // end of a dialogue
+            ...
+        ]
+        """
+        dialogue_data = []
+        for dialogue in self.all_dialogues.dialogue_list:
+            dialogue_dict = {'domain': dialogue.domain, 'scene_objects': dict(), 'dialogues': []}
+            scene_ids = dialogue.scene_ids
+            for k, scene_id in scene_ids.items():
+                dialogue_dict['scene_objects'][int(k)] = dict()
+                scene = Scene.from_json(scene_id)
+                scene_objs_info = self.given_scene_get_all_obj_info(scene_id)
+                for obj_info in scene_objs_info:
+                    # TODO: convert world to camera-relative position, considering camera's position and orientation (direction vec -> ouler angle -> subtract displacement then apply rotation matrix)
+                    obj_info_dict = {**vars(obj_info['meta']), **vars(obj_info['obj'])}  # order of 'meta' and 'obj' matters
+                    # convert object's world position to camera-relative position
+                    # stackoverflow.com/questions/21622956/how-to-convert-direction-vector-to-euler-angles
+                    # https://en.wikipedia.org/wiki/Rotation_matrix#In_three_dimensions
+                    obj_world_pos = obj_info['obj'].position
+                    camera_pos = scene.camera_object.camera
+                    camera_forward = scene.camera_object.forward
+                    camera_up = scene.camera_object.up
+                    # direction vec -> ouler angle
+                    yaw = math.atan2(camera_forward[1], camera_forward[0])  # yaw(heading): rotate around z-axis
+                    pitch = math.asin(camera_forward[2])  # pitch: rotate around x-axis
+                    R0 = [-camera_forward[1], camera_forward[0], 0]
+                    U0 = np.cross(R0, camera_forward)
+                    roll = math.atan2(np.dot(R0, camera_up) / np.linalg.norm(R0), np.dot(U0, camera_up) / np.linalg.norm(U0))  # roll(bank): rotate around y-axis
+                    # subtract displacement
+                    x, y, z = np.array(obj_world_pos) - np.array(camera_pos)
+                    # apply rotaion matrix (R_x, R_y, R_z) in inverse angle
+                    x, y, z = [x, math.cos(-pitch)*y - math.sin(-pitch)*z, math.sin(-pitch)*y + math.cos(-pitch)*z]  # applied R_x
+                    x, y, z = [math.cos(-roll)*x + math.sin(-roll)*z, y, -1*math.sin(-roll)*x + math.cos(-roll)*z]  # applied R_y
+                    x, y, z = [math.cos(-yaw)*x - math.sin(-yaw)*y, math.sin(-yaw)*x + math.cos(-yaw)*y, z]  # applied R_z
+                    obj_info_dict['position'] = [x, y, z]
+                    dialogue_dict['scene_objects'][int(k)][obj_info['obj'].index] = obj_info_dict
+            
+            for idx, single_turn in enumerate(dialogue.single_dialogue_list):
+                single_turn_dict = dict()
+                belief = single_turn.transcript_annotated
+                belief_dict = {'act': ":".join([belief.act.dialogue_act, belief.act.activity]), 'slot_values': belief.act_attributes.slot_values,
+                               'request_slots': belief.act_attributes.request_slots, 'objects': belief.act_attributes.objects}
+                single_turn_dict['belief'] = belief_dict
+                context_list = []
+                context_list.insert(0, 'USER : ' + single_turn.transcript)
+                for i in range(1, len_history+1):
+                    if idx - i >= 0:
+                        one_history = 'USER : ' + dialogue.single_dialogue_list[idx-1].transcript + ' SYSTEM : ' + dialogue.single_dialogue_list[idx-1].system_transcript
+                        context_list.insert(0, one_history)
+                    else:
+                        break
+                single_turn_dict['context'] = context_list
+                dialogue_dict['dialogues'].append(single_turn_dict)
+
+            dialogue_data.append(dialogue_dict)
+
+        return dialogue_data
+
 
 if __name__ == "__main__":
     prompt_api = PromptAPI('train')
-    # metadata = prompt_api.given_scene_objid_get_meta('cloth_store_1_1_1', obj_unique_id=0)
+    # metadata = prompt_api.given_scene_get_all_obj_info('cloth_store_1_1_1', obj_unique_id=0)
     # print('print metadata', metadata)
-    metas = prompt_api.given_scene_get_all_meta('m_cloth_store_1416238_woman_3_8')
-    print(metas)
+    metas = prompt_api.given_scene_get_all_obj_info('m_cloth_store_1416238_woman_3_8')
+    meta_dict = {**vars(metas[0]['meta']), **vars(metas[0]['obj'])}
+    # print(meta_dict)
+    # print(metas)
+    dial_data = prompt_api.dial_data_returner()
+    print(dial_data[0])
+    # print(dial_data[0]['scene_objects'])
+    # print(dial_data[0]['dialogues'])
 
     

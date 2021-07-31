@@ -5,6 +5,8 @@ from pathlib import Path
 def find_data_dir(root_dir_name=""):
     """
         For finding the right data folder, since directories of data folder are different among users
+        root_dir_name: root directory name of simmc2
+        here, data_dir means the original data folder, not folder of preprocessed data
     """
 
     assert root_dir_name, "you must give root_dir_name"

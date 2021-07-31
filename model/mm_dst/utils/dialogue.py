@@ -10,7 +10,7 @@ from util import find_data_dir
 DIALOGUE_ACTS = ("INFORM", "CONFIRM", "REQUEST", "ASK")
 ACTIVITIES = ("GET", "DISAMBIGUATE", "REFINE", "ADD_TO_CART", "COMPARE")
 
-DATA_DIR = find_data_dir('ours')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
+DATA_DIR = find_data_dir('DSTC10-SIMMC')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 
 @attr.s
 class Action:
@@ -165,4 +165,5 @@ def main_function(dial_split="train"):
 
 
 if __name__ == "__main__":
-    main_function(dial_split='dev')
+    all_dials = main_function(dial_split='dev')
+    print(all_dials.dialogue_list[:2])
