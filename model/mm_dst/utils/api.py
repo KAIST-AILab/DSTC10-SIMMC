@@ -121,23 +121,26 @@ class PromptAPI:
                     # convert object's world position to camera-relative position
                     # stackoverflow.com/questions/21622956/how-to-convert-direction-vector-to-euler-angles
                     # https://en.wikipedia.org/wiki/Rotation_matrix#In_three_dimensions
-                    obj_world_pos = obj_info['obj'].position
-                    camera_pos = scene.camera_object.camera
-                    camera_forward = scene.camera_object.forward
-                    camera_up = scene.camera_object.up
+                    
+                    # obj_world_pos = obj_info['obj'].position
+                    # camera_pos = scene.camera_object.camera
+                    # camera_forward = scene.camera_object.forward
+                    # camera_up = scene.camera_object.up
                     # direction vec -> ouler angle
-                    yaw = math.atan2(camera_forward[1], camera_forward[0])  # yaw(heading): rotate around z-axis
-                    pitch = math.asin(camera_forward[2])  # pitch: rotate around x-axis
-                    R0 = [-camera_forward[1], camera_forward[0], 0]
-                    U0 = np.cross(R0, camera_forward)
-                    roll = math.atan2(np.dot(R0, camera_up) / np.linalg.norm(R0), np.dot(U0, camera_up) / np.linalg.norm(U0))  # roll(bank): rotate around y-axis
+                    # yaw = math.atan2(camera_forward[1], camera_forward[0])  # yaw(heading): rotate around z-axis
+                    # pitch = math.asin(camera_forward[2])  # pitch: rotate around x-axis
+                    # R0 = [-camera_forward[1], camera_forward[0], 0]
+                    # U0 = np.cross(R0, camera_forward)
+                    # roll = math.atan2(np.dot(R0, camera_up) / np.linalg.norm(R0), np.dot(U0, camera_up) / np.linalg.norm(U0))  # roll(bank): rotate around y-axis
                     # subtract displacement
-                    x, y, z = np.array(obj_world_pos) - np.array(camera_pos)
+                    # x, y, z = np.array(obj_world_pos) - np.array(camera_pos)
+                    distance_from_camera = np.linalg.norm(np.array(obj_world_pos) - np.array(camera_pos))
                     # apply rotaion matrix (R_x, R_y, R_z) in inverse angle
-                    x, y, z = [x, math.cos(-pitch)*y - math.sin(-pitch)*z, math.sin(-pitch)*y + math.cos(-pitch)*z]  # applied R_x
-                    x, y, z = [math.cos(-roll)*x + math.sin(-roll)*z, y, -1*math.sin(-roll)*x + math.cos(-roll)*z]  # applied R_y
-                    x, y, z = [math.cos(-yaw)*x - math.sin(-yaw)*y, math.sin(-yaw)*x + math.cos(-yaw)*y, z]  # applied R_z
-                    obj_info_dict['position'] = [x, y, z]
+                    # x, y, z = [x, math.cos(-pitch)*y - math.sin(-pitch)*z, math.sin(-pitch)*y + math.cos(-pitch)*z]  # applied R_x
+                    # x, y, z = [math.cos(-roll)*x + math.sin(-roll)*z, y, -1*math.sin(-roll)*x + math.cos(-roll)*z]  # applied R_y
+                    # x, y, z = [math.cos(-yaw)*x - math.sin(-yaw)*y, math.sin(-yaw)*x + math.cos(-yaw)*y, z]  # applied R_z
+                    # obj_info_dict['position'] = [x, y, z]
+                    obj_info_dict['distance'] = distance_from_camera
                     dialogue_dict['scene_objects'][int(k)][obj_info['obj'].index] = obj_info_dict
             
             for idx, single_turn in enumerate(dialogue.single_dialogue_list):
