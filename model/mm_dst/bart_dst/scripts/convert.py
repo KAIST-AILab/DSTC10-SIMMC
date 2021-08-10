@@ -17,8 +17,6 @@ import os
 from functools import partial
 from itertools import chain
 
-from gpt2_dst.scripts.convert import (parse_flattened_results_from_file,
-                                      represent_visual_objects)
 from utils import api
 
 # DSTC style dataset fieldnames
@@ -72,6 +70,12 @@ def _build_special_tokens(use_multimodal_contexts=True,
 
     special_tokens = {"eos_token": END_OF_SENTENCE}
     return special_tokens
+
+
+def represent_visual_objects(object_ids):
+    # Stringify visual objects (JSON)
+    str_objects = ", ".join([str(o) for o in object_ids])
+    return f"{START_OF_MULTIMODAL_CONTEXTS} {str_objects} {END_OF_MULTIMODAL_CONTEXTS}"
 
 
 def format_dialog(dialog,

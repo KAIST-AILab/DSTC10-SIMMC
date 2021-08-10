@@ -1,8 +1,8 @@
 import math
 import numpy as np
-from dialogue import main_function as dialogue_main_function
-from metadata import main_function as metadata_main_function
-from scene import Scene
+from .dialogue import main_function as dialogue_main_function
+from .metadata import main_function as metadata_main_function
+from .scene import Scene
 
 
 class PromptAPI:
@@ -86,17 +86,17 @@ class PromptAPI:
             {  // start of a dialogue
                 domain: dialogue's domain
                 dialogues: [
-                    {'context': history_1 + user_uttr_1 as list, 'belief': belief_1 dict},
-                    {'context': history_2 + user_uttr_2 as list, 'belief': belief_2 dict},
+                    {'context': history_1 + user_uttr_1 as list, 'context_with_obj': context with system's mentioned objs, 'belief': belief_1 dict},
+                    {'context': history_2 + user_uttr_2 as list, 'context_with_obj': context with system's mentioned objs, 'belief': belief_2 dict},
                     ...
                 ]
                 scene_objects: {
-                    'scene_id_1': {
+                    scene_idx_1: {
                     0: 0-th object's meta info, in dictionary format
                     1: 1-th object's meta info, in dictionary format
                     ...
                     },
-                    'scene_id_2': {
+                    scene_idx_2: {
                     0: 0-th object's meta info, in dictionary format
                     1: 1-th object's meta info, in dictionary format
                     ...
@@ -122,24 +122,10 @@ class PromptAPI:
                     # stackoverflow.com/questions/21622956/how-to-convert-direction-vector-to-euler-angles
                     # https://en.wikipedia.org/wiki/Rotation_matrix#In_three_dimensions
                     
-                    # obj_world_pos = obj_info['obj'].position
-                    # camera_pos = scene.camera_object.camera
-                    # camera_forward = scene.camera_object.forward
-                    # camera_up = scene.camera_object.up
-                    # direction vec -> ouler angle
-                    # yaw = math.atan2(camera_forward[1], camera_forward[0])  # yaw(heading): rotate around z-axis
-                    # pitch = math.asin(camera_forward[2])  # pitch: rotate around x-axis
-                    # R0 = [-camera_forward[1], camera_forward[0], 0]
-                    # U0 = np.cross(R0, camera_forward)
-                    # roll = math.atan2(np.dot(R0, camera_up) / np.linalg.norm(R0), np.dot(U0, camera_up) / np.linalg.norm(U0))  # roll(bank): rotate around y-axis
-                    # subtract displacement
-                    # x, y, z = np.array(obj_world_pos) - np.array(camera_pos)
+                    # Actually, only position from camera matters... for directional utterance, using bbox is better
+                    obj_world_pos = obj_info['obj'].position
+                    camera_pos = scene.camera_object.camera
                     distance_from_camera = np.linalg.norm(np.array(obj_world_pos) - np.array(camera_pos))
-                    # apply rotaion matrix (R_x, R_y, R_z) in inverse angle
-                    # x, y, z = [x, math.cos(-pitch)*y - math.sin(-pitch)*z, math.sin(-pitch)*y + math.cos(-pitch)*z]  # applied R_x
-                    # x, y, z = [math.cos(-roll)*x + math.sin(-roll)*z, y, -1*math.sin(-roll)*x + math.cos(-roll)*z]  # applied R_y
-                    # x, y, z = [math.cos(-yaw)*x - math.sin(-yaw)*y, math.sin(-yaw)*x + math.cos(-yaw)*y, z]  # applied R_z
-                    # obj_info_dict['position'] = [x, y, z]
                     obj_info_dict['distance'] = distance_from_camera
                     dialogue_dict['scene_objects'][int(k)][obj_info['obj'].index] = obj_info_dict
             
@@ -150,14 +136,20 @@ class PromptAPI:
                                'request_slots': belief.act_attributes.request_slots, 'objects': belief.act_attributes.objects}
                 single_turn_dict['belief'] = belief_dict
                 context_list = []
+                context_with_obj_list = []
                 context_list.insert(0, 'USER : ' + single_turn.transcript)
+                context_with_obj_list.insert(0, 'USER : ' + single_turn.transcript)
                 for i in range(1, len_history+1):
                     if idx - i >= 0:
-                        one_history = 'USER : ' + dialogue.single_dialogue_list[idx-1].transcript + ' SYSTEM : ' + dialogue.single_dialogue_list[idx-1].system_transcript
+                        one_history = 'USER : ' + dialogue.single_dialogue_list[idx-i].transcript + ' SYSTEM : ' + dialogue.single_dialogue_list[idx-i].system_transcript
                         context_list.insert(0, one_history)
+                        obj = ', '.join(list(map(str,dialogue.single_dialogue_list[idx-i].system_transcript_annotated.act_attributes.objects)))
+                        one_history_with_obj = 'USER : ' + dialogue.single_dialogue_list[idx-i].transcript + ' SYSTEM : ' + dialogue.single_dialogue_list[idx-i].system_transcript + ' <SOM> ' + obj + ' <EOM>'
+                        context_with_obj_list.insert(0, one_history_with_obj)
                     else:
                         break
                 single_turn_dict['context'] = context_list
+                single_turn_dict['context_with_obj'] = context_with_obj_list
                 dialogue_dict['dialogues'].append(single_turn_dict)
 
             dialogue_data.append(dialogue_dict)
@@ -166,7 +158,7 @@ class PromptAPI:
 
 
 if __name__ == "__main__":
-    prompt_api = PromptAPI('train')
+    prompt_api = PromptAPI('dev')
     # metadata = prompt_api.given_scene_get_all_obj_info('cloth_store_1_1_1', obj_unique_id=0)
     # print('print metadata', metadata)
     metas = prompt_api.given_scene_get_all_obj_info('m_cloth_store_1416238_woman_3_8')

@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from attr import converters, validators
 
-from util import find_data_dir
+from .util import find_data_dir
 
 DATA_DIR = find_data_dir('DSTC10-SIMMC')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 

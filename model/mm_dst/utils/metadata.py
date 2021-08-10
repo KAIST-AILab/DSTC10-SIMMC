@@ -6,7 +6,7 @@ from typing import List
 import attr
 from attr.validators import instance_of
 
-from util import find_data_dir
+from .util import find_data_dir
 
 DATA_DIR = find_data_dir('DSTC10-SIMMC')  # give root folder name of simmc2 as argument. Ex) find_data_dir('DSTC10-SIMMC')
 
