@@ -3,6 +3,9 @@ import random
 import glob
 import logging
 import os
+from pathlib import Path
+import pdb
+import pickle
 from collections import OrderedDict
 from typing import Dict, List, Tuple
 import numpy as np
@@ -14,7 +17,9 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset, RandomSampler, SequentialSampler
 from utils.api import PromptAPI
 from transformers import (
+    LongformerConfig,
     LongformerTokenizer,
+    LongformerTokenizerFast,
     LongformerForTokenClassification,
     AdamW, 
     get_linear_schedule_with_warmup,
@@ -55,16 +60,24 @@ class CorefLongformerDataset(Dataset):
         coref_data = []
         coref_objs = []
         for one_dial in dial_data:
+            domain = one_dial['domain']
             # fetching object info
-            attrs_to_consider = ['asset_type', 'color', 'pattern', 'sleeve_length', 'size', 
+            attrs_to_consider_fashion = ['asset_type', 'color', 'pattern', 'sleeve_length', 'size', 
                 'available_sizes', 'brand', 'customer_review']
+            attrs_to_consider_furniture = ['type', 'color', 'materials', 'brand', 'customer_review']
             scene_str_dict = dict()
             for scene_idx, scene_obj_dict in one_dial['scene_objects'].items():
                 scene_obj_str = ''
                 obj_indices = sorted(list(scene_obj_dict.keys()))
                 for obj_idx in obj_indices:
                     obj_attrs = scene_obj_dict[obj_idx]
-                    obj_attrs_str = ' '.join([str(obj_attrs[attr]) if str(obj_attrs[attr]) else 'None' for attr in attrs_to_consider])
+                    if domain == 'fashion':
+                        obj_attrs_str = ' '.join([str(obj_attrs[attr]) if str(obj_attrs[attr]) else 'None' for attr in attrs_to_consider_fashion])
+                    elif domain == 'furniture':
+                        obj_attrs_str = ' '.join([str(obj_attrs[attr]) if str(obj_attrs[attr]) else 'None' for attr in attrs_to_consider_furniture])
+                    else:
+                        print('domain must be either fashion or furniture')
+                        sys.exit(1)
                     obj_attrs_str = f' {OBJ_TOKEN} ' + str(obj_idx) + ' : ' + obj_attrs_str
                     scene_obj_str += obj_attrs_str
                 scene_str_dict[scene_idx] = scene_obj_str
@@ -81,8 +94,19 @@ class CorefLongformerDataset(Dataset):
                 one_turn_str += ' ' + NO_COREF_TOKEN + scene_str_dict[this_turn_scene_idx] 
                 coref_data.append(one_turn_str)
 
-        # 짤리는 object에 대해선 coref못잡는 일이 발생할수 있지만, but we use longformer here
+        with open('coref_data.pkl', 'wb') as f:
+            pickle.dump(coref_data, f)
+
+        # print('coref data')
+        # print(coref_data[0])
+        # print('coref_objs', coref_objs)
+        # print(f"object token id: {obj_token_id}, no coref id: {no_coref_token_id}, USER: {tokenizer.get_vocab()['USER']}, SYSTEM: {tokenizer.get_vocab()['SYSTEM']}")
+
         self.enc_input = tokenizer(coref_data, add_special_tokens=True).input_ids
+        
+        
+        # print('enc_input[0]')
+        # print(self.enc_input[0])
 
         # set token_classification_labels
         self.token_classification_labels = []
@@ -90,8 +114,10 @@ class CorefLongformerDataset(Dataset):
         self.global_attention = []
 
         for data_idx, coref_obj in enumerate(coref_objs):  # coref_objs is a list
-            coref_obj_label_list = torch.zeros(len(self.enc_input[data_idx]))
-            this_line_global_attention = torch.zeros(len(self.enc_input[data_idx]))
+            if data_idx == 0:
+                print('len:', len(self.enc_input[data_idx]))
+            coref_obj_label_list = np.zeros(len(self.enc_input[data_idx]))
+            this_line_global_attention = np.zeros(len(self.enc_input[data_idx]))
 
             # for global attention, set index 1
             for input_id_idx, input_id in enumerate(self.enc_input[data_idx]): 
@@ -103,9 +129,10 @@ class CorefLongformerDataset(Dataset):
             if not coref_obj:
                 for input_id_idx, input_id in enumerate(self.enc_input[data_idx]): 
                     if input_id == no_coref_token_id:
+                        if data_idx == 0:
+                            print('input_id_idx for no coref', input_id_idx)
                         coref_obj_label_list[input_id_idx] = 1
                         break
-                continue
             else:
                 obj_token_id_counter = 0
                 for input_id_idx, input_id in enumerate(self.enc_input[data_idx]):
@@ -116,6 +143,13 @@ class CorefLongformerDataset(Dataset):
 
             self.token_classification_labels.append(coref_obj_label_list)            
             self.global_attention.append(this_line_global_attention)
+
+        # print('tok cls size',np.array(self.token_classification_labels).shape)
+        # print('glo attn size',np.array(self.global_attention).shape)
+        # print('token clsf labels')
+        # print(self.token_classification_labels[0])
+        # print('global attention')
+        # print(self.global_attention[0])
 
     def __len__(self):
         return len(self.enc_input)
@@ -128,7 +162,7 @@ class CorefLongformerDataset(Dataset):
 
 def handle_incomplete_batch(tokenizer, split):
     dataset = CorefLongformerDataset(tokenizer, split)
-    n = len(dataset) % BATCH_SIZE
+    n = len(dataset) % args.batch_size
     if n != 0:
         dataset.enc_input = dataset.enc_input[:-n]
         dataset.token_classification_labels = dataset.token_classification_labels[:-n]
@@ -153,12 +187,12 @@ def evaluate(model, tokenizer, args, prefix=''):
             global_attention_mask_pad = pad_sequence(global_attention_mask, batch_first=True, padding_value=.0)
         return enc_input_pad, labels_pad, global_attention_mask_pad
     
-    eval_dataloader = DataLoader(eval_dataset, sampler=SequentialSampler(eval_dataset), batch_size=BATCH_SIZE, collate_fn=collate_longformer)
+    eval_dataloader = DataLoader(eval_dataset, sampler=SequentialSampler(eval_dataset), batch_size=args.batch_size, collate_fn=collate_longformer)
     
     # Eval!
     logger.info("***** Running evaluation {} *****".format(prefix))
     logger.info("  Num examples = %d", len(eval_dataset))
-    logger.info("  Batch size = %d", args.eval_batch_size)
+    logger.info("  Batch size = %d", args.batch_size)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
@@ -176,6 +210,9 @@ def evaluate(model, tokenizer, args, prefix=''):
         values, indices = torch.max(logits, dim=-1)
         prediction = indices
 
+        print('global_attention_mask shape', global_attention_mask.size())
+        print('indices shape', indices.size())
+
         if prediction.tolist() == token_classification_label.tolist():
             num_correct += 1
 
@@ -186,6 +223,8 @@ def evaluate(model, tokenizer, args, prefix=''):
     eval_loss = eval_loss / nb_eval_steps
     perplexity = torch.exp(torch.tensor(eval_loss))
     result = {"perplexity": perplexity, 'accuracy': accuracy}
+    
+    Path(os.path.join(args.output_dir, prefix)).mkdir(parents=True, exist_ok=True)
     output_eval_file = os.path.join(args.output_dir, prefix, "eval_results.txt")
     with open(output_eval_file, "w") as writer:
         logger.info("***** Eval results {} *****".format(prefix))
@@ -199,7 +238,24 @@ def evaluate(model, tokenizer, args, prefix=''):
     
 
 def train(model, tokenizer, args):
+    # Path(os.path.join(args.save_dir)).mkdir(parents=True, exist_ok=True)
+
     train_dataset = handle_incomplete_batch(tokenizer, 'train')
+
+    def collate_longformer(examples: List[torch.Tensor]):
+        enc_input = list(map(lambda x: x[0], examples))
+        labels = list(map(lambda x: x[1], examples))
+        global_attention_mask = list(map(lambda x: x[2], examples))
+        if tokenizer._pad_token is None:
+            enc_input_pad = pad_sequence(enc_input, batch_first=True)
+            labels_pad = pad_sequence(labels, batch_first=True)
+            global_attention_mask_pad = pad_sequence(global_attention_mask, batch_first=True)
+        else:
+            enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
+            labels_pad = pad_sequence(labels, batch_first=True, padding_value=tokenizer.pad_token_id)
+            global_attention_mask_pad = pad_sequence(global_attention_mask, batch_first=True, padding_value=.0)
+        return enc_input_pad, labels_pad, global_attention_mask_pad
+
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=args.batch_size, collate_fn=collate_longformer)
     tb_writer = SummaryWriter()
 
@@ -224,7 +280,7 @@ def train(model, tokenizer, args):
     ]
 
     global_step = 0
-    t_total = len(train_dataloader) * args.train_epochs
+    t_total = len(train_dataloader) * args.train_epochs 
     optimizer = AdamW(
         optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(
@@ -232,12 +288,12 @@ def train(model, tokenizer, args):
     
     # Check if saved optimizer or scheduler states exist
     if ( args.save_dir  
-         and os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt"))
-         and os.path.isfile(os.path.join(args.model_name_or_path, "scheduler.pt"))
+         and os.path.isfile(os.path.join(args.save_dir, "optimizer.pt"))
+         and os.path.isfile(os.path.join(args.save_dir, "scheduler.pt"))
     ):
         # Load in optimizer and scheduler states
-        optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
-        scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
+        optimizer.load_state_dict(torch.load(os.path.join(args.save_dir, "optimizer.pt")))
+        scheduler.load_state_dict(torch.load(os.path.join(args.save_dir, "scheduler.pt")))
 
     # Train!
     logger.info("***** Running training *****")
@@ -283,7 +339,7 @@ def train(model, tokenizer, args):
             model.zero_grad()
             global_step += 1
 
-            if args.logging_step  > 0 and global_step % args.logging_steps == 0:
+            if args.logging_steps  > 0 and global_step % args.logging_steps == 0:
                 results = evaluate(model, tokenizer, args)
                 for key, value in results.items():
                     tb_writer.add_scalar(
@@ -327,17 +383,18 @@ def main(args):
         )
     args.device = device
     
-    tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-large-4096')
+    tokenizer = LongformerTokenizerFast.from_pretrained('allenai/longformer-base-4096')
     
     spcial_tokens = {"eos_token": "<EOS>", "additional_special_tokens": 
-    ["USER", "SYS", OBJ_TOKEN, NO_COREF_TOKEN, "<EOB>", "<SOM>", "<EOM>", "INFORM:REFINE", "REQUEST:COMPARE", "brand", "INFORM:GET", "customerReview", "materials", 
+    ["USER", "SYSTEM", OBJ_TOKEN, NO_COREF_TOKEN, "<EOB>", "<SOM>", "<EOM>", "INFORM:REFINE", "REQUEST:COMPARE", "brand", "INFORM:GET", "customerReview", "materials", 
     "customerRating", "ASK:GET", "pattern", "INFORM:DISAMBIGUATE", "availableSizes", "REQUEST:GET", "color", "sleeveLength", "size", 
     "REQUEST:ADD_TO_CART", "price", "type", "REQUEST:COMPARE", "color", "availableSizes", "REQUEST:GET", "customerReview", "type", "brand", "price", "REQUEST:ADD_TO_CART", 
     "INFORM:DISAMBIGUATE", "pattern", "INFORM:REFINE", "sleeveLength", "INFORM:GET", "size", "ASK:GET", "REQUEST:ADD_TO_CART", "brand", "customerReview", "size", "INFORM:DISAMBIGUATE", 
     "INFORM:REFINE", "ASK:GET", "REQUEST:GET", "INFORM:GET", "color", "customerRating", "price", "type", "pattern", "materials", "availableSizes", "sleeveLength", "REQUEST:COMPARE"]}
     tokenizer.add_special_tokens(spcial_tokens)
 
-    model = LongformerForTokenClassification.from_pretrained('allenai/longformer-large-4096', num_labels=2)
+    model = LongformerForTokenClassification.from_pretrained('allenai/longformer-base-4096', num_labels=2, attention_window=100)
+    # model.config = LongformerConfig(attention_window=100, num_labels=2)
     model.resize_token_embeddings(len(tokenizer))
     model.vocab_size = len(tokenizer)
 
@@ -409,6 +466,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--logging_steps',
+        type=int,
         default=500
     )
     parser.add_argument(
