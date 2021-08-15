@@ -1,6 +1,7 @@
 import os
 import json
 import cv2
+import random
 from pathlib import Path
 
 
@@ -30,7 +31,7 @@ def find_data_dir(root_dir_name=""):
     return 
 
 
-def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str = '', json_file:str = ''):
+def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str = '', json_file:str = '', bbox_random_shift=True):
     """
     Must give folder name or file name argument in absolute path
     image_folder: folder that all the images are in
@@ -40,6 +41,7 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
                   ...
     json_folder: if json_folder is given, this will process cropping for all the jsonfiles in that folder,
     json_file: if only json_file is given, this will process croppping only for that particular json file scene (as json filename is scene name)
+    bbox_random_shift: random shift range for to bbox crop, for data augmentation / model robustness. Should give empty list or None if you don't want random shift
 
     Sometimes there are errors at bbox coordinates, scene.json is missing, or image is blank or not openable -> therefore rarely some crops won't be generated
     """
@@ -78,17 +80,56 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
         # some images are not read or blank so causing "libpng error: IDAT: CRC error"
         if image is not None:
             for obj in objs:
-                print(obj['index'])
+                # print(obj['index'])
                 index = obj['index']
                 x_0, y_0, h, w = obj['bbox']
-                print([y_0,y_0+h, x_0,x_0+w])
                 if h>0 and w>0:
-                    crop = image[y_0:y_0+h, x_0:x_0+w]
-                    if scene_name:
-                        cv2.imwrite('{}.png'.format(os.path.join(output_folder, scene_name, str(index))), crop)
-                    elif json_file:
-                        cv2.imwrite('{}.png'.format(os.path.join(
-                            output_folder, scene_name_from_jsonfile, str(index))), crop)
+                    lowerleft_x = x_0
+                    lowerleft_y = y_0
+                    upperright_x = x_0 + w
+                    upperright_y = y_0 + h
+                    if bbox_random_shift:
+                        try:  # sometimes error happens after shifted cropping, with unknown reason. so just roughly use try catch statement for now
+                            x1, y1, x2, y2 = lowerleft_x, lowerleft_y, upperright_x, upperright_y
+                            shift_pixel_list = [10,7,4]
+                            for shift in shift_pixel_list:
+                                shifted_upperright_x = upperright_x + random.randrange(-shift,shift)
+                                shifted_lowerleft_x = lowerleft_x + random.randrange(-shift,shift)
+                                shifted_upperright_y = upperright_y + random.randrange(-shift,shift)
+                                shifted_lowerleft_y = lowerleft_y + random.randrange(-shift,shift)
+                                # get IOU
+                                intersect_x1 = max(lowerleft_x, shifted_lowerleft_x)
+                                intersect_y1 = max(lowerleft_y, shifted_lowerleft_y)
+                                intersect_x2 = min(upperright_x, shifted_upperright_x)
+                                intersect_y2 = min(upperright_y, shifted_upperright_y)
+                                original_bbox_area = w * h
+                                shifted_bbox_area = (shifted_upperright_x - shifted_lowerleft_x) * (shifted_upperright_y - shifted_lowerleft_y)
+                                intersect_area = max(0, intersect_x2-intersect_x1) * max(0, intersect_y2-intersect_y1)
+                                IOU = intersect_area / (original_bbox_area + shifted_bbox_area - intersect_area)
+                                if IOU > 0.8:
+                                    x1, y1, x2, y2 = shifted_lowerleft_x, shifted_lowerleft_y, shifted_upperright_x, shifted_upperright_y
+                                    break
+                            crop = image[y1:y2, x1:x2]
+                            if scene_name:
+                                cv2.imwrite('{}.png'.format(os.path.join(output_folder, scene_name, str(index))), crop)
+                            elif json_file:
+                                cv2.imwrite('{}.png'.format(os.path.join(
+                                    output_folder, scene_name_from_jsonfile, str(index))), crop)
+                        except:
+                            crop = image[lowerleft_y:upperright_y, lowerleft_x:upperright_x]
+                            if scene_name:
+                                cv2.imwrite('{}.png'.format(os.path.join(output_folder, scene_name, str(index))), crop)
+                            elif json_file:
+                                cv2.imwrite('{}.png'.format(os.path.join(
+                                    output_folder, scene_name_from_jsonfile, str(index))), crop)
+                    else:
+                        crop = image[lowerleft_y:upperright_y, lowerleft_x:upperright_x]
+                        if scene_name:
+                            cv2.imwrite('{}.png'.format(os.path.join(output_folder, scene_name, str(index))), crop)
+                        elif json_file:
+                            cv2.imwrite('{}.png'.format(os.path.join(
+                                output_folder, scene_name_from_jsonfile, str(index))), crop)
+
                 else:
                     print('mislabled bbox!')
 
@@ -104,7 +145,7 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
 
 if __name__ == '__main__':
     image_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/images'
-    output_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/cropped_output'
+    output_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/cropped_output_random_shift'
     # json_file = '/Users/HeyJude/Development/GSAI/dstc/dstc10/DSTC10-SIMMC/data/jsons/m_cloth_store_1416238_woman_14_0_scene.json'
     json_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/jsons'
     # given_bbox_crop_image(image_folder=image_folder, output_folder=output_folder, json_file=json_file)
