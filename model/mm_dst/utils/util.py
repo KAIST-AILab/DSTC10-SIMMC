@@ -2,6 +2,7 @@ import os
 import json
 import cv2
 import random
+import argparse
 from pathlib import Path
 
 
@@ -144,12 +145,21 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
 
 
 if __name__ == '__main__':
-    image_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/images'
-    output_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/cropped_output_random_shift'
+    parser = argparse.ArgumentParser(description='argparse for given_bbox_crop_image')
+    parser.add_argument('--img_folder', required=True, type=str)
+    parser.add_argument('--output_folder', required=True, type=str)
+    parser.add_argument('--json_folder', default='', type=str)
+    parser.add_argument('--json_file', default='', type=str)
+    parser.add_argument('--bbox_random_shift', action='store_true')
+    args = parser.parse_args()
+
+    # Examples)
+    # image_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/images'
+    # output_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/cropped_output_random_shift'
     # json_file = '/Users/HeyJude/Development/GSAI/dstc/dstc10/DSTC10-SIMMC/data/jsons/m_cloth_store_1416238_woman_14_0_scene.json'
-    json_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/jsons'
-    # given_bbox_crop_image(image_folder=image_folder, output_folder=output_folder, json_file=json_file)
-    given_bbox_crop_image(image_folder=image_folder, output_folder=output_folder, json_folder=json_folder)
+    # json_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/jsons'
+    given_bbox_crop_image(image_folder=args.img_folder, output_folder=args.output_folder, 
+                          json_folder=args.json_folder, bbox_random_shift=args.bbox_random_shift)
 
 
 
