@@ -1,16 +1,16 @@
 ### Requirement
 
-transformers
+- transformers
 
-torch==1.9
+- torch==1.9
 
-tqdms
+- tqdms
 
-timm
+- timm
 
-#### Dataset
+## Dataset
 
-```json
+```
 # /ext/dstc10/yschoi/train.json
 { "0": # train_index
 		{
@@ -23,7 +23,7 @@ timm
  		}
 ```
 
-```json
+```
 #/ext/dstc10/yschoi/item2id.json
 # fashion item <@1000> ~ <@1287>
 # furniture itme <@2000> ~ <@2056>
@@ -36,7 +36,7 @@ timm
 }
 ```
 
-```json
+```
 #/ext/dstc10/yschoi/simmc2_special_tokens.json
 {
     "eos_token": "<EOS>",
