@@ -275,7 +275,7 @@ def train(
         else:
             enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
             # dec_input_pad = pad_sequence(dec_input, batch_first=True, padding_value=tokenizer.pad_token_id)
-            labels_pad = pad_sequence(labels, batch_first=True, padding_value=tokenizer.pad_token_id)
+            labels_pad = pad_sequence(labels, batch_first=True, padding_value=-100)
 
         # return enc_input_pad, dec_input_pad, labels_pad
         return enc_input_pad, labels_pad

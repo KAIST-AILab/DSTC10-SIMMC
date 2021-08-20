@@ -1,10 +1,11 @@
 import os
+import sys
 import json
 import cv2
 import random
 import argparse
 from pathlib import Path
-
+from collections import OrderedDict
 
 def find_data_dir(root_dir_name=""):
     """
@@ -29,7 +30,8 @@ def find_data_dir(root_dir_name=""):
             and os.path.isfile(os.path.join(path, 'data', 'simmc2_dials_dstc10_devtest.json'))  
             ):
                 return os.path.join(path, 'data')
-    return 
+    print('No data folder exists')
+    return None
 
 
 def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str = '', json_file:str = '', bbox_random_shift=True):
@@ -43,9 +45,10 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
     json_folder: if json_folder is given, this will process cropping for all the jsonfiles in that folder,
     json_file: if only json_file is given, this will process croppping only for that particular json file scene (as json filename is scene name)
     bbox_random_shift: random shift range for to bbox crop, for data augmentation / model robustness. Should give empty list or None if you don't want random shift
-
     Sometimes there are errors at bbox coordinates, scene.json is missing, or image is blank or not openable -> therefore rarely some crops won't be generated
     """
+    assert img_folder, "img_folder must be specified"
+    assert output_folder, "output_folder must be specified"
     assert json_folder or json_file, 'Folder_name or image_name should be given!'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -144,23 +147,57 @@ def given_bbox_crop_image(image_folder:str, output_folder:str, json_folder:str =
         crop(json_file = json_file)
 
 
+def bboxes_of_all_scenes(json_folder, picklefile=''):
+    """
+        provide or write bboxes of all scenes.
+        if picklefile is provided, writes to pickle.
+        
+        bboxes: {scene_json_filename1: {0:[bbox], 1:[bbox], ...}, scene_json_filename1: {...}, ...}
+    """
+
+    # TODO: m_, bbox만 있는 scene들
+
+    bboxes = {}
+    for filename in os.listdir(json_folder):
+        if filename.endswith('scene.json'):
+            bboxes[filename] = {}
+            with open(f'{json_folder}/{filename}', 'r') as f_in:
+                objs = json.load(f_in)['scenes'][0]['objects']
+                for obj in objs:
+                    x1, y1, h, w = obj['bbox']
+                    bboxes[filename][obj['index']] = [x1, y1, x1 + w, y1 + h]
+                bboxes[filename] = dict(OrderedDict(sorted(bboxes[filename].items(), key=lambda t:t[0])))
+
+    if picklefile:
+        with open(picklefile, 'wb') as f:
+            pickle.dump(bboxes, f)
+    else:
+        print(bboxes)
+        return bboxes
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='argparse for given_bbox_crop_image')
-    parser.add_argument('--img_folder', required=True, type=str)
-    parser.add_argument('--output_folder', required=True, type=str)
+    parser = argparse.ArgumentParser(description='argparse for given_bbox_crop_image or bboxes_of_all_scenes')
+    parser.add_argument('--function', required=True, choices=['bbox_crop', 'bbox_all'])
+    parser.add_argument('--img_folder', type=str)
+    parser.add_argument('--output_folder', type=str)
     parser.add_argument('--json_folder', default='', type=str)
     parser.add_argument('--json_file', default='', type=str)
     parser.add_argument('--bbox_random_shift', action='store_true')
+    parser.add_argument('--picklefile', type=str, default='', help='if empty then just returns a dictionary')
     args = parser.parse_args()
+
+    if args.function == 'bbox_crop':
+        given_bbox_crop_image(args.image_folder, args.output_folder, args.json_folder, 
+                              args.json_file, args.bbox_random_shift)
+    elif args.function == 'bbox_all':
+        bboxes_of_all_scenes(args.json_folder, args.picklefile)
+    else:
+        print('args.function must be one of {bbox_crop|bbox_all}')
+        sys.exit(1)
 
     # Examples)
     # image_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/images'
     # output_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/cropped_output_random_shift'
-    # json_file = '/Users/HeyJude/Development/GSAI/dstc/dstc10/DSTC10-SIMMC/data/jsons/m_cloth_store_1416238_woman_14_0_scene.json'
+    # json_file = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/jsons/m_cloth_store_1416238_woman_14_0_scene.json'
     # json_folder = '/home/haeju/Dev/dstc/dstc10/DSTC10-SIMMC/data/jsons'
-    given_bbox_crop_image(image_folder=args.img_folder, output_folder=args.output_folder, 
-                          json_folder=args.json_folder, bbox_random_shift=args.bbox_random_shift)
-
-
-
-
