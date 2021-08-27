@@ -1,0 +1,14 @@
+# cache
+.cache
+.vscode
+.empty
+.ipynb_checkpoints
+__pycache__
+
+# deprecated
+deprecated
+
+# data
+*_logs
+data
+checkpoints
