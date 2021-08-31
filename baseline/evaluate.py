@@ -2,7 +2,7 @@ import copy
 import json
 import argparse
 
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 import nltk
 import numpy as np
@@ -11,6 +11,8 @@ import numpy as np
 def normalize(sentence: Union[str, List[str]]):
     '''
         Normalizes sentence for BLEU score computation.
+
+        NOTE: only for use in generation task
 
         Args:
             sentence <str>: sentence input
@@ -26,12 +28,17 @@ def normalize(sentence: Union[str, List[str]]):
     return normalized
 
 
-def evaluate_from_json(d_true, d_pred):
+def evaluate_from_json(d_true: Dict[List[str, Any]], d_pred: Dict[List[str, Any]]):
     '''
         Evaluates predicted dialogue states from json format.
 
-        e.g. 
+        Args:
+            d_true <List[Dict[str, Any]]>: ground truth dialogue states
+            d_pred <List[Dict[str, Any]]>: predicted dialog states
         
+        Returns:
+            results <Dict[str, float]>: dictionary of computed evaluation metrics
+        e.g. 
         [
             {
                 "dialogue": [
@@ -83,26 +90,32 @@ def evaluate_from_json(d_true, d_pred):
 
 
 def evaluate_from_flat_list(d_true, d_pred):
-    """
-    <list>d_true and <list>d_pred are in the following format:
-    (Each element represents a single turn, with (multiple) frames)
-    [
-        [
-            {
-                'act': <str>,
-                'slots': [
-                    [
-                        SLOT_NAME, SLOT_VALUE
-                    ], ...
-                ]
-            },
-            [End of a frame]
-            ...
-        ],
-        [End of a turn]
-        ...
-    ]
-    """
+    '''
+        Args:
+            d_true <List>: ground truth
+            d_pred <List>: predictions
+
+        Returns:
+            count_dict <Dict[str, float]>: resulting metrics
+
+        e.g. 
+            [
+                [
+                    {
+                        'act': <str>,
+                        'slots': [
+                            [
+                                SLOT_NAME, SLOT_VALUE
+                            ], ...
+                        ]
+                    },
+                    [End of a frame]
+                    ...
+                ],
+                [End of a turn]
+                ...
+            ]
+    '''
     c = initialize_count_dict()
 
     # Count # corrects & # wrongs

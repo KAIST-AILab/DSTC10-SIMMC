@@ -1,17 +1,23 @@
+import os
 import uuid
 import datetime
+import warnings
 
 import torch
 import pytorch_lightning as pl
 
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.plugins import DDPPlugin
 
 from common.utils import get_parser
 from baseline.modules import Baseline
 from baseline.dataset import BaselineDataModule
 from baseline.options import TrainingOptions
- 
+
+warnings.simplefilter("ignore")
+os.environ['PYTHONWARNINGS'] = "ignore"
+
 if __name__ == "__main__":
     parser = get_parser(TrainingOptions)
     args = parser.parse_args()
@@ -33,10 +39,10 @@ if __name__ == "__main__":
     # Checkpointing callback
     checkpoint_callback = ModelCheckpoint(
         monitor="devtest_mean_perp",
-        dirpath="./checkpoints/baseline",
-        every_n_train_steps=0,
-        every_n_val_epochs=1,
-        filename="{epoch}-{devtest_mean_perp:.3f}",
+        dirpath="./baseline/checkpoints",
+        save_weights_only=False,
+        # every_n_train_steps=500,
+        filename="{step}-{dev_mean_perp:.4f}-{devtest_mean_perp:.4f}",
         save_top_k=3,
         mode='min'
     )
@@ -47,7 +53,7 @@ if __name__ == "__main__":
 
     # Distrubted training plugin
     distributed_plugin = None
-    if torch.cuda.device_count() > 1: 
+    if torch.cuda.device_count() > 1:
         distributed_plugin = "dp"
     if args.ddp:
         distributed_plugin = "ddp"
@@ -65,26 +71,34 @@ if __name__ == "__main__":
             "logger": loggers,
             "log_every_n_steps": args.log_interval,
             "max_epochs": args.max_epochs,
+            "plugins": DDPPlugin(find_unused_parameters=False) if args.ddp else None,
             "precision": 16 if args.fp16 else 32,
-            "progress_bar_refresh_rate": 0,
+            "progress_bar_refresh_rate": None if args.do_test else 0,
             "resume_from_checkpoint": args.checkpoint,
+            "val_check_interval": args.val_check_interval
         } 
     trainer = pl.Trainer(**trainer_args)
-    args.num_gpus = trainer.num_gpus
-    args.num_nodes = trainer.num_nodes
 
     # Data module (prepare_data, setup called before model init. -- we use tokenizer info for model init.)
-    pl_data  = BaselineDataModule(args)
+    pl_data = BaselineDataModule(args)
     pl_data.prepare_data()
-    pl_data.setup()
-    # Model
-    pl_model = Baseline(args, pl_data.tokenizer)
 
-    if args.do_tune:    
+    if args.checkpoint:
+        pl_model = Baseline.load_from_checkpoint(
+            args.checkpoint,
+            args=args, tokenizer=pl_data.tokenizer
+        )
+    else:
+        pl_model = Baseline(args, pl_data.tokenizer)
+
+    if args.do_tune:
+        pl_data.setup('fit')
         trainer.tune(model=pl_model, datamodule=pl_data)
 
     if args.do_train:
+        pl_data.setup('fit')
         trainer.fit(model=pl_model, datamodule=pl_data)
 
     if args.do_test:
+        pl_data.setup('test')
         trainer.test(model=pl_model, datamodule=pl_data)

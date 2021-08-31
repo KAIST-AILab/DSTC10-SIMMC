@@ -22,11 +22,12 @@ TEMPLATE_TARGET = ("{context} {START_BELIEF_STATE} {belief_state} "
 TEMPLATE_SOURCE_NOBELIEF = "{context} {START_OF_RESPONSE} "
 TEMPLATE_TARGET_NOBELIEF = "{context} {START_OF_RESPONSE} {response} {END_OF_SENTENCE}"
 
-def batch_remove_pad_token(sentences: List[str]) -> List[str]:
+
+def clean_tokens(sentences: List[str]) -> List[str]:
     return [
-        s.split(PAD_TOKEN)[0].strip() for s in sentences
+        s.strip(PAD_TOKEN).strip().strip(END_OF_SENTENCE) for s in sentences
     ]
-    
+
 
 def get_special_tokens(
     use_belief_states: bool=True,
@@ -60,6 +61,7 @@ def format_dialog(
         usr_uttr = turn['transcript'].replace("\n", " ").strip()
         usr_belief = turn['transcript_annotated']
         sys_attr = turn['system_transcript'].replace("\n", " ").strip()
+        disamb_label = turn.get('disambiguation_label', -1)
 
         # Format main input context
         context = ""
@@ -131,7 +133,7 @@ def format_dialog(
                 END_OF_SENTENCE=END_OF_SENTENCE,
                 START_OF_RESPONSE=START_OF_RESPONSE,
             )
-        yield source, target
+        yield source, target, disamb_label
 
 
 def convert_json_to_flattened(
@@ -156,19 +158,23 @@ def convert_json_to_flattened(
         use_multimodal_contexts=use_multimodal_contexts,
         use_belief_states=use_belief_states
     )
-    sources, targets = zip(*chain.from_iterable(map(_formatter, data)))
+    sources, targets, disamb_label = zip(*chain.from_iterable(map(_formatter, data)))
 
     directory = os.path.dirname(output_path)
     os.makedirs(directory, exist_ok=True)
 
     # Output into text files
-    to_dump = {"source": sources, "target": targets}
+    to_dump = \
+        {
+            "source": sources, "target": targets,
+            "disambiguation_label": disamb_label
+        }
     with open(output_path, "w") as f:
         json.dump(to_dump, f)
     return oov
 
 
-def parse_flattened_result(to_parse: str) -> List[Dict[str, Any]]:
+def parse_dst(to_parse: str) -> List[Dict[str, Any]]:
     '''
         Parse line-by-line raw text data to belief state dictionary.
         Used for evaluation of generated text sequence.
@@ -177,24 +183,29 @@ def parse_flattened_result(to_parse: str) -> List[Dict[str, Any]]:
             to_parse <str>: a single text line
         
         Returns:
-            parsed <List[Dict[str, Any]]>: parsed result in json format
+            parsed <List[Dict[str, Any]]>: parsed result in json format (serializable)
 
             e.g.
             [
                 {
-                    'act': <str>  # e.g. 'DA:REQUEST',
+                    'act': 'INFORM:REFINE',
                     'slots': [
-                        <str> slot_name,
-                        <str> slot_value
-                    ]
-                }, ...  # End of a frame
-            ]  # End of a dialog
+                        ['pattern', 'plain with stripes on side'],
+                        ['customerReview', 'good'],
+                        ['availableSizes', "['M', 'XL', 'XS']"],
+                        ['type', 'sweater']
+                    ],
+                    'request_slots': [],
+                    'objects': []
+                },
+                ...
+            ]
     '''
     dialog_act_regex = re.compile(
-        r"([\w:?.?]*)  *\[([^\]]*)\] *\(([^\]]*)\) *\<([^\]]*)\>"
-    )
+        r'([\w:?.?]*)  *\[(.*)\] *\(([^\]]*)\) *\<([^\]]*)\>'
+    )    
     slot_regex = re.compile(
-        r"([A-Za-z0-9_.-:]*)  *= ([^,]*)"
+        r"([A-Za-z0-9_.-:]*)  *= (\[(.*)\]|[^,]*)"
     )
     request_regex = re.compile(
         r"([A-Za-z0-9_.-:]+)"
@@ -216,12 +227,13 @@ def parse_flattened_result(to_parse: str) -> List[Dict[str, Any]]:
 
             for dialog_act in dialog_act_regex.finditer(to_parse):
                 act, slots, requests, objects = dialog_act.groups()
-                d = {
-                    "act": act,
-                    "slots": [],
-                    "request_slots": [],
-                    "objects": [],
-                }
+                d = \
+                    {
+                        "act": act,
+                        "slots": list(),
+                        "request_slots": list(),
+                        "objects": list(),
+                    }
 
                 for slot in slot_regex.finditer(slots):
                     d["slots"].append([slot[1].strip(), slot[2].strip()])
@@ -232,5 +244,12 @@ def parse_flattened_result(to_parse: str) -> List[Dict[str, Any]]:
 
                 if d != {}:
                     belief.append(d)
-
     return belief
+
+
+def parse_response(generated: str):
+    splits = generated.split(END_OF_BELIEF, 1)
+    return (
+        splits[0].strip(),
+        splits[1].split(END_OF_SENTENCE)[0].strip()
+    )

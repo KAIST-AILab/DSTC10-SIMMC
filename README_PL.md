@@ -1,10 +1,7 @@
-# UNDER CONSTRUCTION
-
-This directory is a copy of a fork that is still under development -- uploaded for template reference.
-
 # DSTC10 SIMMC Repository
 
 This repository contains refactored codebase for DSTC10 SIMMC 2.0 Challenge.
+
 
 ## Dataset
 ### Overview
@@ -33,9 +30,50 @@ Dataset can be downloaded with `download.sh`. This script was made for bypassing
 ./data/images/cloth_store_1416238_woman_20_6.png
 ```
 
-### Preprocessing (Extracting bounding box crops) 
-For this particular model, we decide not to use object detection models. Instead, we take provided bounding boxes from metadata and create a custom item vector. Items in the `fashion` domain `furniture` domain. Cropped bounding boxes can be extracted from scene images with `image2meta/preprocess.py`. This creates `data/crops` directory, which will be read in using `torchvision.datasets.DatasetFolder` descendent:
+## Project (Codebase)
+
+### Basic structure
+All models can be trained and evaluated with `run_{model}.py` script. The directory for each model is under its respective directory, e.g. `baseline`, `caption`, etc. Each model directory has the following format:
+
 ```
+|-- run_model.py
+|-- model
+|   |-- __init__.py
+|   |-- data            # Directory containing processed data and special tokens -- generated
+|   |-- logs            # Directory containing logs -- generated
+|   |-- checkpoints     # Directory containing checkpoints -- generated
+|   |-- dataset.py      # Contains LightningDataModule / Dataset class
+|   |-- evaluate.py     # Contains helpers for evaluation
+|   |-- modules.py      # Contains LightningModule (model) class
+|   |-- options.py      # Contains supported parsing arguments
+|   `-- process.py      # Contains pre-/post-processing func. called in `dataset.py`
+`-- ...
+```
+
+### Running
+In order to run the model, you can either provide `--do-train` (fitting), `--do-test` (testing), or `--do-tune` (learning rate tuning). The codebase is built on `pytorch-lightning`, which provides a device-agnostic boilerplate for training. For distributed training, you can provide `--gpus` argument to specify the gpus. If `--ddp` argument is not provided, data parallel (DP) will be run. It is generally recommended to run distributed data parallel (DDP) for training.
+
+**NOTE**: Multi-word arguments can be passed as either `_` (underscore) or `-` (hyphen), e.g. `--do-test` is equivalent to `--do_test`. 
+
+- Run training
+```shell
+python run_model.py \
+  --do-train \          # Run training
+  --gpus="0,1" \        # GPUs on which the script will be run (must be provided as str)
+  --ddp \               # Distributed data parallel flag
+  --fp16                # AMP -- optional, usually recommended for speed
+```
+
+- Run testing (evaluation)
+```shell
+python run_model.py \
+  --do-test \
+  --fp16                # One can try DDP, but sampling may become tricky
+```
+
+### Extracting Bounding Boxes
+For this particular model, we decide not to use object detection models. Instead, we take provided bounding boxes from metadata and create a custom item vector. Items in the `fashion` domain `furniture` domain. Cropped bounding boxes can be extracted from scene images with `image2meta/preprocess.py`. This creates `data/crops` directory, which will be read in using `torchvision.datasets.DatasetFolder` descendent:
+```shell
 # @1... : fashion @2... : furniture
 |-- crops
 |   |-- @1210
@@ -51,7 +89,7 @@ For this particular model, we decide not to use object detection models. Instead
 ```
 
 It also dumps a `token2meta.json` file with the following format.
-```json
+```
 {
   "@1000": {
         "assetType": "blouse_hanging",
@@ -74,34 +112,7 @@ It also dumps a `token2meta.json` file with the following format.
 }
 ```
 
-## Project (Codebase)
 
-### Basic structure
-All models can be trained and evaluated with `run_{model}.py` script. The directory for each model is under its respective directory, e.g. `baseline`, `caption`, etc. Each model directory has the following format:
-
-```
-|-- run_model.py
-|-- model
-|   |-- __init__.py
-|   |-- dataset.py      # Contains LightningDataModule / Dataset class
-|   |-- evaluate.py     # Contains helpers for evaluation
-|   |-- modules.py      # Contains LightningModule (model) class
-|   |-- options.py      # Contains supported parsing arguments
-|   `-- process.py      # Contains pre-/post-processing func. called in `dataset.py`
-`-- ...
-```
-
-### Running
-In order to run the model, you can either provide `--do-train` (fitting), `--do-test` (testing), or `--do-tune` (learning rate tuning). The codebase is built on `pytorch-lightning`, which provides a device-agnostic boilerplate for training. For distributed training, you can provide `--gpus` argument to specify the gpus. If `--ddp` argument is not provided, data parallel (DP) will be run. It is generally recommended to run distributed data parallel (DDP) for training.
-
-**NOTE**: Multi-word arguments can be passed as either `_` (underbar) or `-` (hyphen), e.g. `--do-test` is equivalent to `--do_test`. 
-
-```shell
-python run_model.py \
-  --do-train \          # Run training
-  --gpus="0,1" \        # GPUs on which the script will be run (must be provided as str)
-  --ddp                 # Distributed data parallel flag
-```
 
 
 <!-- ## Disambiguate (Base Boilerplate)

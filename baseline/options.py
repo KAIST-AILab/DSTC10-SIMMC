@@ -32,7 +32,7 @@ class TrainingOptions:
         metadata={"help": "path to furniture metadata"}
     )
     tokenizer_path: str = attr.ib(
-        default="./baseline/baseline_tokens.json",
+        default="./baseline/data/special_tokens.json",
         metadata={"help": "path to baseline tokenizer special tokens dict"}
     )
     train_raw_path: str = attr.ib(
@@ -48,19 +48,19 @@ class TrainingOptions:
         metadata={"help": "path to raw devtest file"}
     )
     train_processed_path: str = attr.ib(
-        default="./data/processed_baseline_train.json",
+        default="./baseline/data/processed_baseline_train.json",
         metadata={"help": "path to processed train file"}
     )
     dev_processed_path: str = attr.ib(
-        default="./data/processed_baseline_dev.json",
+        default="./baseline/data/processed_baseline_dev.json",
         metadata={"help": "path to processed dev (validation) file"}
     )
     devtest_processed_path: str = attr.ib(
-        default="./data/processed_baseline_devtest.json",
+        default="./baseline/data/processed_baseline_devtest.json",
         metadata={"help": "path to processed devtest file"}
     )
     log_path: str = attr.ib(
-        default="./logs/baseline",
+        default="./baseline/logs",
         metadata={"help": "path to logs"}
     )
     max_length: int = attr.ib(
@@ -119,7 +119,7 @@ class TrainingOptions:
         metadata={"help": "linear scheduler warmup ratio"}
     )
     num_workers: int = attr.ib(
-        default=4,
+        default=0,
         metadata={"help": "number of workers in dataloader"}
     )
     ddp: bool = attr.ib(
@@ -155,7 +155,7 @@ class TrainingOptions:
         metadata={"help": "validation check interval for every epoch"}
     )
     top_k: int = attr.ib(
-        default=0,
+        default=None,
         metadata={"help": "top-k for generation (not recommended)"}
     )
     top_p: float = attr.ib(

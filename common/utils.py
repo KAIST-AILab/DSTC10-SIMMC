@@ -58,6 +58,7 @@ def get_args_string(args: Namespace) -> str:
     result += "{}\n".format("=" * len(top_str))
     return result
 
+
 @rank_zero_only
 def get_logger(log_path: str, exp_name: str, timestamp: str) -> logging.Logger:
     '''
