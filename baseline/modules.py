@@ -21,7 +21,7 @@ from transformers import (
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from common.utils import get_logger, get_args_string
-from common.metrics import DSTScore, DisambAccuracy, BLEUScore
+from baseline.metrics import DSTScore, DisambAccuracy, BLEUScore
 from baseline.process import clean_tokens, parse_dst, parse_response
 
 class Baseline(LightningModule):
