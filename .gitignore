@@ -14,10 +14,11 @@ __pycache__/
 data/
 savings/
 *.tar.gz
-checkpoint*
+*.ckpt
 
 # Logs
 checkpoint
+logs
 
 # model weights and eventfiles
 save/model/

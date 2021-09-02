@@ -23,10 +23,22 @@ TEMPLATE_SOURCE_NOBELIEF = "{context} {START_OF_RESPONSE} "
 TEMPLATE_TARGET_NOBELIEF = "{context} {START_OF_RESPONSE} {response} {END_OF_SENTENCE}"
 
 
-def clean_tokens(sentences: List[str]) -> List[str]:
+def clean_tokens(sentences: List[str], pad_token: str, eos_token: str) -> List[str]:
     return [
-        s.strip(PAD_TOKEN).strip().strip(END_OF_SENTENCE) for s in sentences
+        s.strip(pad_token)
+         .split(eos_token, 1)[0]
+         .strip(eos_token[:-1])
+         .strip() for s in sentences
     ]
+
+
+def parse_response(generated: str):
+    splits = generated.split(END_OF_BELIEF, 1)
+    try:
+        result = (splits[0].strip(), splits[1].strip())
+    except:
+        result = (generated, '')
+    return result
 
 
 def get_special_tokens(
@@ -245,11 +257,3 @@ def parse_dst(to_parse: str) -> List[Dict[str, Any]]:
                 if d != {}:
                     belief.append(d)
     return belief
-
-
-def parse_response(generated: str):
-    splits = generated.split(END_OF_BELIEF, 1)
-    return (
-        splits[0].strip(),
-        splits[1].split(END_OF_SENTENCE)[0].strip()
-    )

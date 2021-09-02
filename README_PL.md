@@ -2,6 +2,9 @@
 
 This repository contains refactored codebase for DSTC10 SIMMC 2.0 Challenge.
 
+## Change Log
+- [September 2, 2021] Fixed error in generated sequence post-processing which led to abnormally high joint-accuracy. Increased generation length (in some cases, response could not be generated, hence leading to error at `.split` in `parse_response` function). This may lead to longer evaluation time (still under 10 minutes).
+
 
 ## Dataset
 ### Overview

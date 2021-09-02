@@ -147,7 +147,7 @@ class Baseline(LightningModule):
         output = self.model.generate(
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
-            max_length=inputs['input_ids'].shape[1] + 100,
+            max_length=inputs['input_ids'].shape[1] + 198,
             top_k=self.args.top_k,
             top_p=self.args.top_p,
             repetition_penalty=self.args.repetition_penalty,
@@ -233,23 +233,24 @@ class Baseline(LightningModule):
         batch_ground_truths = clean_tokens(
             self.tokenizer.batch_decode(
                 labels['input_ids'], clean_up_tokenization_spaces=True
-            )
+            ), self.tokenizer.pad_token, self.tokenizer.eos_token
         )
         batch_predictions = clean_tokens(
             self.tokenizer.batch_decode(
                 output, clean_up_tokenization_spaces=True
-            )
+            ), self.tokenizer.pad_token, self.tokenizer.eos_token
         )
         for ground_truth, prediction, disamb_label in zip(batch_ground_truths, batch_predictions, disamb_labels):
+            # Log generated sequences
+            self.console_log("{} {} <==> {} ".format(disamb_label, prediction, ground_truth))
+
             # DST parsing
             ground_truth_parsed = parse_dst(ground_truth)
             prediction_parsed = parse_dst(prediction)
             # Response parsing
             ground_truth_response = parse_response(ground_truth)
             prediction_response = parse_response(prediction)
-
-            # Log generated sequences
-            self.console_log("{} <==> {} ".format(prediction, ground_truth))
+            
             # Metric tracking
             self.disambiguate_metrics(prediction_parsed, disamb_label)
             self.dst_metrics(prediction_parsed, ground_truth_parsed)
