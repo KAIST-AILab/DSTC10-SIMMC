@@ -52,7 +52,7 @@ class AttentionPooler(nn.Module):
         a = torch.einsum('b i j, b j d -> b i d', a, v)
         if self.pool_type == 'mean':
             if mask is not None:
-                a = a.sum(dim=1) / mask.sum(dim=1)
+                a = (a * ~mask).sum(dim=1) / (~mask).sum(dim=1)
         else:
             a = a[:,0,:]
         return a
