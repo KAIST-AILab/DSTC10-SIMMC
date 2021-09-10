@@ -70,10 +70,6 @@ class MetadataEncoder(nn.Module):
         self.embedding = nn.Embedding.from_pretrained(
             glove, padding_idx=0
         )
-        # self.attn_pool = nn.MultiheadAttention(
-        #     embed_dim=self.embedding.embedding_dim,
-        #     num_heads=4
-        # )
         head_size = self.embedding.embedding_dim
         self.attn_pool = AttentionPooler(
             head_size, attention_dim, pool_type
@@ -83,8 +79,6 @@ class MetadataEncoder(nn.Module):
         mask = (x == 0)
         x = self.embedding(x).float()
         x = self.attn_pool(x, mask)
-        # x = x.permute(1,0,2)
-        # x = self.attn_pool(x, x, x, key_padding_mask=mask, need_weights=False)
         return x
 
 
