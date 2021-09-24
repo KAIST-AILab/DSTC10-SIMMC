@@ -11,6 +11,10 @@ class TrainingOptions:
         default=None,
         metadata={"help": "path to last checkpoint"}
     )
+    do_tune: bool = attr.ib(
+        default=False,
+        metadata={"help": "flag for initial learning rate tuning"}
+    )
     do_train: bool = attr.ib(
         default=False,
         metadata={"help": "flag for training (train/validate)"}
@@ -19,9 +23,17 @@ class TrainingOptions:
         default=False,
         metadata={"help": "flag for evaluating (test)"}
     )
+    fashion_metadata_path: str = attr.ib(
+        default="../../data/fashion_prefab_metadata_all.json",
+        metadata={"help": "path to fashion metadata"}
+    )
+    furniture_metadata_path: str = attr.ib(
+        default="../../data/furniture_prefab_metadata_all.json",
+        metadata={"help": "path to furniture metadata"}
+    )
     tokenizer_path: str = attr.ib(
         default="./data/special_tokens.json",
-        metadata={"help": "path to tokenizer special tokens dict"}
+        metadata={"help": "path to multitask tokenizer special tokens dict"}
     )
     train_raw_path: str = attr.ib(
         default="../../data/simmc2_dials_dstc10_train.json",
@@ -55,8 +67,12 @@ class TrainingOptions:
         default="./data/predictions.txt",
         metadata={"help": "path to predictions output"}
     )
+    log_path: str = attr.ib(
+        default="./logs",
+        metadata={"help": "path to logs"}
+    )
     max_length: int = attr.ib(
-        default=512,
+        default=1024,
         metadata={"help": "maximum token length"}
     )
     context_length: int = attr.ib(
@@ -77,35 +93,27 @@ class TrainingOptions:
             "dest": "use_belief_states"
         }
     )
-    generate_sys_attr: bool = attr.ib(
-        default=False,
-        metadata={"help": "flag to generate system attribute"}
-    )
-    no_use_relations_info: bool = attr.ib(
+    no_generate_sys_attr: bool = attr.ib(
         default=True,
         metadata={
-            "help": "flag to use relations info",
-            "dest": "use_relations_info"
+            "help": "flag to generate system attribute",
+            "dest": "generate_sys_attr"
         }
     )
-    pretrained_checkpoint: str = attr.ib(
-        default="roberta-large",
-        metadata={"help": "model name from HF hub"}
-    )
     config_name: str = attr.ib(
-        default="roberta-large",
+        default="facebook/bart-base",
         metadata={"help": "model name from HF hub"}
     )
     batch_size: int = attr.ib(
-        default=8,
+        default=4,
         metadata={"help": "batch size per device"}
     )
     max_epochs: int = attr.ib(
-        default=3, 
+        default=2, 
         metadata={"help": "max epochs to train"}
     )
     learning_rate: float = attr.ib(
-        default=3e-5,
+        default=5e-5,
         metadata={"help": "initial learning rate for optimizer"}
     )
     beta_1: float = attr.ib(
@@ -180,16 +188,4 @@ class TrainingOptions:
     mix_lambda: float = attr.ib(
         default=0.01,
         metadata={"help": "loss weight parameter"}
-    )
-    dropout: float = attr.ib(
-        default=0.0,
-        metadata={"help": "dropout rate"}
-    )
-    pooler_dropout: float = attr.ib(
-        default=0.0,
-        metadata={"help": "pooler dropout rate"}
-    )
-    use_glove: bool = attr.ib(
-        default=False,
-        metadata={"help": "use glove embeddings"}
     )

@@ -1,73 +1,111 @@
 import json
 
-from typing import Optional
+from pathlib import Path
+from argparse import Namespace
 from functools import lru_cache
+from typing import Tuple, Optional
 
 import torch
 
-from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
-from transformers import AutoTokenizer
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoTokenizer, BatchEncoding
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-from process import get_special_tokens, convert_json_to_flattened
+from process import convert_json_to_flattened, get_special_tokens
+
 
 class LineTextDataset(Dataset):
-    def __init__(self, dialog_path: str):
+    '''
+        A line-by-line dataset that takes each line as individual sample (that is, we do not split lines into blocks of fixed size).
+
+        Args:
+            data_path <str>: path to dataset (processed)
+            is_train <bool>: flag for training
+                - for training, returns (target, target)
+                - else, returns (source, target) for evaluation
+    '''
+    def __init__(self, data_path: str, is_train: bool=True):
         super().__init__()
         
-        # Dialogue -> Dict[str, Dict[str, str]]
-        with open(dialog_path, 'r') as f:
-            self.dialog = json.load(f)
+        # Flag for training
+        self.is_train = is_train
+        
+        with open(data_path, 'r') as f:
+            data = json.load(f)
+        
+        self.sources = data['source']
+        self.targets = data['target']
+        self.disambiguation_labels = data['disambiguation_label']
 
     def __len__(self) -> int:
-        return len(self.dialog)
+        return len(self.sources)
     
     @lru_cache()
     def __getitem__(self, idx):
-        sample = self.dialog[idx]
-        return (sample['dialog_id'], sample['turn_id'], sample['source'], sample['disambiguation_label'])
+        return (
+            self.sources[idx], self.targets[idx],
+            self.disambiguation_labels[idx]
+        )
 
 
-class DisambiguationDataModule(LightningDataModule):
-    def __init__(self, args):
+class MultiTaskDataModule(LightningDataModule):
+    def __init__(self, args: Namespace):
         super().__init__()
 
         self.args = args
-        self.tokenizer = AutoTokenizer.from_pretrained(args.pretrained_checkpoint)
+        self.tokenizer = AutoTokenizer.from_pretrained(args.config_name)
 
     def prepare_data(self) -> None:
-        special_tokens = get_special_tokens(self.args.generate_sys_attr)
-        # Load necessary raw dataset
-        with open(self.args.train_raw_path, 'r') as f:
-            train_file = json.load(f)['dialogue_data']
-        with open(self.args.dev_raw_path, 'r') as f:
-            dev_file = json.load(f)['dialogue_data']
-        with open(self.args.devtest_raw_path, 'r') as f:
-            devtest_file = json.load(f)['dialogue_data']
-        # Convert
-        files = [train_file, dev_file, devtest_file]
-        paths = \
-            [
+        # This method runs only on rank zero (main process in distributed mode)
+        train_path = Path(self.args.train_processed_path)
+        dev_path = Path(self.args.dev_processed_path)
+        devtest_path = Path(self.args.devtest_processed_path)
+        # Check for preprocessed file caches
+        exists = train_path.exists() \
+                    and dev_path.exists() \
+                        and devtest_path.exists()
+        # If there is none, preprocess then dump 
+        if not exists:
+            special_tokens = get_special_tokens(
+                self.args.use_belief_states,
+                self.args.use_multimodal_contexts
+            )
+            # Load necessary raw dataset
+            with open(self.args.train_raw_path, 'r') as f:
+                train_file = json.load(f)['dialogue_data']
+            with open(self.args.dev_raw_path, 'r') as f:
+                dev_file = json.load(f)['dialogue_data']
+            with open(self.args.devtest_raw_path, 'r') as f:
+                devtest_file = json.load(f)['dialogue_data']
+            # Convert
+            files = [train_file, dev_file, devtest_file]
+            paths = [
                 self.args.train_processed_path,
                 self.args.dev_processed_path,
                 self.args.devtest_processed_path
             ]
-        out_of_vocab = set()
-        for data, path in zip(files, paths):
-            oov = convert_json_to_flattened(
-                data,
-                path,
-                self.args.context_length,
-                self.args.generate_sys_attr
+            out_of_vocab = set()
+            for data, path in zip(files, paths):
+                oov = convert_json_to_flattened(
+                    data,
+                    path,
+                    self.args.context_length,
+                    self.args.use_multimodal_contexts,
+                    self.args.use_belief_states,
+                    self.args.generate_sys_attr
+                )
+                out_of_vocab.update(oov)
+            # Dump special tokens
+            special_tokens['additional_special_tokens'].extend(
+                list(out_of_vocab)
             )
-            out_of_vocab.update(oov)
-        # Dump special tokens
-        special_tokens['additional_special_tokens'].extend(
-            list(out_of_vocab)
-        )
-        with open(self.args.tokenizer_path, 'w') as f:
-            json.dump(special_tokens, f, indent=4)
-     
+            with open(self.args.tokenizer_path, 'w') as f:
+                json.dump(special_tokens, f)
+        else:
+            # Else, load the special tokens
+            with open(self.args.tokenizer_path, 'r') as f:
+                special_tokens = json.load(f)
         # Add special tokens
         _ = self.tokenizer.add_special_tokens(special_tokens)
 
@@ -88,25 +126,26 @@ class DisambiguationDataModule(LightningDataModule):
             )
 
     def collate_fn(self, batch):
-        (
-            dialog_id,
-            turn_id,
-            encoder_inputs,
-            disambiguation_labels
-        ) = tuple(map(list, zip(*batch)))
-        
+        encoder_inputs, decoder_inputs, disambiguation_labels = tuple(map(list, zip(*batch)))
         encoder_inputs = self.tokenizer(
             encoder_inputs,
-            padding='longest',
+            padding="longest",
+            max_length=self.args.max_length,
             truncation=True,
-            return_tensors='pt'
+            return_tensors="pt"
         )
-        disambiguation_labels = torch.tensor(
-            disambiguation_labels, dtype=torch.long
+        decoder_inputs = self.tokenizer(
+            decoder_inputs,
+            padding="longest",
+            max_length=self.args.max_length,
+            truncation=True,
+            return_tensors="pt"
         )
-        return dialog_id, turn_id, encoder_inputs, disambiguation_labels
+        disambiguation_labels = torch.Tensor(disambiguation_labels).long()
+        return encoder_inputs, decoder_inputs, disambiguation_labels
 
     def train_dataloader(self) -> DataLoader:
+        self.tokenizer.padding_size = 'right'
         loader = DataLoader(
             self.train_dataset,
             batch_size=self.args.batch_size,
@@ -133,10 +172,9 @@ class DisambiguationDataModule(LightningDataModule):
         return loader
 
     def test_dataloader(self) -> DataLoader:
-        # Padding done on left for generation
         loader = DataLoader(
             self.devtest_dataset,
-            batch_size=self.args.batch_size * 8,
+            batch_size=self.args.batch_size * 12,
             collate_fn=self.collate_fn,
             num_workers=self.args.num_workers
         )

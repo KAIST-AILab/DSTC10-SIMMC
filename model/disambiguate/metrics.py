@@ -1,16 +1,19 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional, List, Union
 
 import torch
+
 from torchmetrics import Metric
 
-
 class DisambiguateAccuracy(Metric):
+    '''
+        Metric tracker in torchmetrics format for disambiguation accuracy.
+    '''
     def __init__(
         self,
-        compute_on_step: bool=True,
-        dist_sync_on_step: bool=False,
-        process_group: Optional[Any]=None,
-        dist_sync_fn: Optional[Callable]=None
+        compute_on_step: bool = True,
+        dist_sync_on_step: bool = False,
+        process_group: Optional[Any] = None,
+        dist_sync_fn: Optional[Callable] = None
     ):
         super().__init__(
             compute_on_step=compute_on_step,
@@ -32,12 +35,11 @@ class DisambiguateAccuracy(Metric):
         predicted: torch.Tensor,
         labels: torch.Tensor
     ):
-        # Get predictions
         _, pred = predicted.max(-1)
-        # Mask out turns without labels
         mask = (labels != -100)
-        # Compute correct instances only on predictions with labels
+
         crt = ((pred == labels) * mask).sum()
+        
         self.n_correct += crt
         self.n_total += mask.sum()
 
