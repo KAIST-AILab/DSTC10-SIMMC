@@ -14,11 +14,9 @@ def make_dialogue_table(input_path_json="/home/yschoi/data/simmc2_dials_dstc10_d
         dialogue_table[k] = v
 
 if __name__ == "__main__":
-
-
     make_dialogue_table()
     cand_data = json.load(open(
-        "/home/yschoi/SIMMC2/retrieval/simmc2_dials_dstc10_dev_retrieval_candidates.json", "r"))
+        "../../data/simmc2_dials_dstc10_dev_retrieval_candidates.json", "r"))
     len_context=2
     
 

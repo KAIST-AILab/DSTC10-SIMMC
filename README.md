@@ -1,101 +1,69 @@
-# DSTC10 SIMMC 2.0 Multimodal Task Oriented Dialogue System Challenge
+# KAIST-AIPRLab Submission
 
-This repository contains the submission and experimentation code for DSTC10 SIMMC 2.0 track by [KAIST AIPR Lab](http://ailab.kaist.ac.kr/). Most of the code base is largely derived from the track [repository][simmc2] for [DSTC10][dstc10]. The SIMMC challenge aims to lay the foundations for the real-world assistant agents that can handle multimodal inputs, and perform multimodal actions. Similar to the [SIMMC 1.0][simmc1] (as part of DSTC9), we focus on the task-oriented dialogs that encompass a situated multimodal user context in the form of a co-observed & immersive virtual reality (VR) environment.
-The conversational context is dynamically updated on each turn based on the user actions (e.g. via verbal interactions, navigation within the scene).
-For this challenge, we release a new Immersive SIMMC 2.0 dataset in the shopping domains: furniture and fashion.   
+## Dataset
+### Overview
+Download the dataset from [repository][simmc2] via git-lfs. Run the script `rearrange.sh` to rearrange the `data` folder in the following format.
 
-**Track Organizers**: Seungwhan Moon, Satwik Kottur, Paul A. Crook, Ahmad Beirami, Babak Damavandi, Alborz Geramifard
+```
+|-- images                                          # scene images
+|   |-- cloth_store_1_1_1.png
+|   |-- cloth_store_1_1_2.png
+|   `-- ...
+|-- jsons                                           # bbox and scene jsons
+|   |-- cloth_store_1_1_1_bbox.json
+|   |-- cloth_store_1_1_1_scene.json
+|   `-- ...
+|-- fashion_prefab_metadata_all.json                # metadata (fashion)
+|-- furniture_prefab_metadata_all.json              # metadata (furniture)
+|-- simmc2_dials_dstc10_dev.json                    # dialogue data (dev)
+|-- simmc2_dials_dstc10_devtest.json                # dialogue data (devtest)
+`-- simmc2_dials_dstc10_train.json                  # dialogue data (train)
+```
 
-**Repository Collaborators**: Haeju Lee, Youngjune Lee, Oh Joon Kwon
+**NOTE**: Some of the scene images are corrupted and therefore ignored. We do not make use of images in this model other than getting image size.
+```
+./data/images/cloth_store_1416238_woman_4_8.png
+./data/images/cloth_store_1416238_woman_19_0.png
+./data/images/cloth_store_1416238_woman_20_6.png
+```
 
-<figure>
-<img src="./overview.png" width="400" alt="Example from SIMMC" align="center"> 
-<figcaption><i>Example from SIMMC-Furniture Dataset</i></figcaption> 
-</figure>
+## Model Parameters
+Download the model parameters from drive link below:
 
-## Important Links
+* Google Drive [link](https://drive.google.com/drive/folders/1Qup6UCpt-U1v-Q7O8cYZQZddc9mo2d3U)
 
-* [Task Description Paper][simmc2_arxiv]
-* [Submission Instructions](SUBMISSION_INSTRUCTIONS.md)
+## **Subtask 1** : Disambiguation Classification
+1. Move into `model/disambiguate`. Running the model automatically preprocesses data.
 
+```shell
+python run.py \
+  --do-train # training
+  --do-test  # evaluating
+  --checkpoint / --pretrained_checkpoint # checkpoint path (default: roberta-large)
+```
 
-## Timeline
+## **Subtask 2, 3, 4** : Multimodal Coreference Resolution, Dialogue State Tracking, Repsonse Generation
+Our model is an end-to-end generative model based on BART. Move into `model/mm_dst/bart_dst/scripts`.
 
-| **Date** | **Milestone** |
-| :--: | :-- |
-| June 14, 2021 | Training & development data released |
-| Sept 24, 2021  | Test-Std data released, End of Challenge Phase 1 |
-| Oct 1, 2021 | Entry submission deadline, End of Challenge Phase 2 |
-| Oct 8, 2021 | Final results announced |
+1. Preprocess data with
+```shell
+bash make_data_object_special.sh
+```
 
+2. Run training
+```shell
+bash run_bart_objvec_nocoref.sh
+```
 
-## Track Description
+3. Run generation / evaluation.
+```shell
+bash run_bartobjvec_nocoref_gen.sh
+```
 
-### Tasks and Metrics
-
-We present four sub-tasks primarily aimed at replicating human-assistant actions in order to enable rich and interactive shopping scenarios.
-
-| Sub-Task #1 | [Multimodal Disambiguation](mm_disambiguation) |
-|---------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Goal | To classify if the assistant should disambiguate in the next turn |
-| Input | Current user utterance, Dialog context, Multimodal context |
-| Output |  Binary label |
-| Metrics |  Binary classification accuracy |
-
-| Sub-Task #2 | [Multimodal Coreference Resolution](mm_coref) |
-|---------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Goal | To resolve referent objects to thier canonical ID(s) as defined by the catalog. |
-| Input | Current user utterance with objection mentions, Dialog context, Multimodal context |
-| Output |  Canonical object IDs |
-| Metrics |  Coref F1 / Precision / Recall |
-
-| Sub-Task #3 | [Multimodal Dialog State Tracking (MM-DST)](mm_dst) |
-|---------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Goal | To track user belief states across multiple turns |
-| Input | Current user utterance, Dialogue context, Multimodal context |
-| Output | Belief state for current user utterance |
-| Metrics | Slot F1, Intent F1 |
-
-| Sub-Task #4 | [Multimodal Dialog Response Generation & Retrieval](mm_response_generation)  |
-|---------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Goal | To generate Assistant responses or retrieve from a candidate pool  |
-| Input | Current user utterance, Dialog context, Multimodal context, (Ground-truth API Calls) |
-| Output | Assistant response utterance |
-| Metrics | Generation: BLEU-4, Retrieval: MRR, R@1, R@5, R@10, Mean Rank |
-
-### Evaluation
-
-For the DSTC10 SIMMC Track, we will do a two phase evaluation as follows. 
-
-**Challenge Period 1**:
-Participants will evaluate the model performance on the provided `devtest` set.
-At the end of Challenge Period 1 (Sept 24), we ask participants to submit their model prediction results and a link to their code repository.
-
-**Challenge Period 2**:
-A `test-std` set will be released on Sept 28 for the participants who submitted the results for the Challenge Period 1.
-We ask participants to submit their model predictions on the `test-std` set by Oct 1. 
-We will announce the final results and the winners on Oct 8.
+## **Subtask 5** : Response Retrieval
 
 
-
-## Repository-specific Instructions
-
-### Download the dataset
-* In order to circumvent the Git-LFS limit imposed by Github, we provide a separate download script in `download.sh`. Simply run the script to download and organize the dataset.
-
-### Running training / evaluation
-* For now, most of the experiments are run by the subtask scripts under `model` directory. The code will be refactored under `tasks` once done with experimentations.
-### Reporting Results for Challenge Phase 1
-* Submit your model prediction results on the `devtest` set, following the [submission instructions](./SUBMISSION_INSTRUCTIONS.md). 
-* We will release the `test-std` set (with ground-truth labels hidden) on Sept 24.
-
-### Reporting Results for Challenge Phase 2
-* Submit your model prediction results on the `test-std` set, following the [submission instructions](./SUBMISSION_INSTRUCTIONS.md). 
-* We will evaluate the participants’ model predictions using the same evaluation script for Phase 1, and announce the results.
-
-## Citations
-
-Please cite the following articles for using the SIMMC 2.0 dataset and baseline:
+## References
 ```
 @article{kottur2021simmc,
   title={SIMMC 2.0: A Task-oriented Dialog Dataset for Immersive Multimodal Conversations},
@@ -103,16 +71,20 @@ Please cite the following articles for using the SIMMC 2.0 dataset and baseline:
   journal={arXiv preprint arXiv:2104.08667},
   year={2021}
 }
+
+@article{lewis2019bart,
+  title={Bart: Denoising sequence-to-sequence pre-training for natural language generation, translation, and comprehension},
+  author={Lewis, Mike and Liu, Yinhan and Goyal, Naman and Ghazvininejad, Marjan and Mohamed, Abdelrahman and Levy, Omer and Stoyanov, Ves and Zettlemoyer, Luke},
+  journal={arXiv preprint arXiv:1910.13461},
+  year={2019}
+}
+
+@article{radford2021learning,
+  title={Learning transferable visual models from natural language supervision},
+  author={Radford, Alec and Kim, Jong Wook and Hallacy, Chris and Ramesh, Aditya and Goh, Gabriel and Agarwal, Sandhini and Sastry, Girish and Askell, Amanda and Mishkin, Pamela and Clark, Jack and others},
+  journal={arXiv preprint arXiv:2103.00020},
+  year={2021}
+}
 ```
-**NOTE**: The [paper][simmc2_arxiv] above describes in detail the datasets, the collection process, and some of the baselines we provide in this challenge. The paper reports the results from an earlier version of the dataset and with different train-dev-test splits, hence the baseline performances on the challenge resources will be slightly different. 
 
-## License
-
-SIMMC 2.0 is released under [CC-BY-NC-SA-4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode), see [LICENSE](LICENSE) for details.
-
-
-[dstc10]:https://sites.google.com/dstc.community/dstc10/home
-[simmc1]:https://github.com/facebookresearch/simmc
 [simmc2]:https://github.com/facebookresearch/simmc2
-[simmc2_arxiv]:https://arxiv.org/pdf/2104.08667.pdf
-[simmc_arxiv]:https://arxiv.org/abs/2006.01460

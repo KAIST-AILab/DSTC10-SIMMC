@@ -59,7 +59,6 @@ def move_to_device(data, device):
         return data
     return data
 
-import ipdb
 if __name__=="__main__":
     device = torch.device("cuda" if not False and torch.cuda.is_available() else "cpu")
     # device = torch.device("cpu")
@@ -75,14 +74,14 @@ if __name__=="__main__":
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=12, collate_fn=train_collate, num_workers=16)
 
     kwargs = {
-            'item_size' : 346,
-            'pad_item_idx' : 0,
-            'pretrained_item_embedding' : None,
-            'loc_layer_input_dim' : 4,
-            "obj_tag_token_id" : obj_tag_token_id,
-            "obj_start_token_id" : obj_start_token_id,
-            "obj_end_token_id" : obj_end_token_id
-        }
+        'item_size' : 346,
+        'pad_item_idx' : 0,
+        'pretrained_item_embedding' : None,
+        'loc_layer_input_dim' : 4,
+        "obj_tag_token_id" : obj_tag_token_id,
+        "obj_start_token_id" : obj_start_token_id,
+        "obj_end_token_id" : obj_end_token_id
+    }
 
     print(f"Vocab_size {vocab_size}")
     model = Model.from_pretrained("facebook/bart-large", **kwargs)

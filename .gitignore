@@ -19,6 +19,8 @@ savings/
 # Logs
 checkpoint
 logs
+data
+lightning_logs
 
 # model weights and eventfiles
 save/model/

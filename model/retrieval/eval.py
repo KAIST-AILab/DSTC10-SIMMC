@@ -132,7 +132,7 @@ if __name__=="__main__":
         gt_labels.append(batch["gt_index"])
 
 
-    indices =torch.cat(mean_top5, dim=0).long() # bs, num_indic
-    label = torch.tensor(gt_lables).reshpae(-1, 1).long() # bs
+    indices = torch.cat(mean_top5, dim=0).long() # bs, num_indic
+    label = torch.tensor(gt_labels).reshape(-1, 1).long() # bs
     top5_value = (indices == label).any(1).float().mean()
-    pritn(top5_value)
+    print(top5_value)
