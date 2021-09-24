@@ -14,10 +14,16 @@ root directory of this source tree.
 import collections
 import json
 import os
+import pickle
+import argparse
 from functools import partial
 from itertools import chain
 
+import numpy as np
+
 from utils import api
+from utils.metadata import (FASHION_SIZES, FASHION_AVAILABLE_SIZES, FASHION_BRAND, FASHION_PRICE, FASHION_CUSTOMER_REVIEW, 
+                            FURNITURE_BRAND, FURNITURE_PRICE, FURNITURE_CUSTOMER_RATING)
 
 # DSTC style dataset fieldnames
 FIELDNAME_DIALOG = "dialogue"
@@ -33,30 +39,72 @@ START_BELIEF_STATE = "=> Belief State :"
 START_OF_RESPONSE = "<SOR>"
 END_OF_BELIEF = "<EOB>"
 END_OF_SENTENCE = "<EOS>"
-START_OF_META = "<META>"
-END_OF_META = "</META>"
+START_OF_OBJ_TOKEN = "<SOO>"
+END_OF_OBJ_TOKEN = "<EOO>"
+OBJ_START = "<OBJ>"
+OBJ_END = "</OBJ>"
+DET_START = "<DET>"
+NO_COREF = "<NOCOREF>"
+START_OF_DETECTION = "<SOD>"
+END_OF_DETECTION = "<EOD>"
+START_OF_DISAMBIGUATION = "<SODIS>"
+END_OF_DISAMBIGUATION = "<EODIS>"
+
+USER = "<USER>"
+SYSTEM = "<SYS>"
+
+available_sizes2st = {
+    'XS': '<A>',
+    'S': '<B>',
+    'M': '<C>',
+    'L': '<D>',
+    'XL': '<E>',
+    'XXL': '<F>' 
+}
+
+ACTS = {
+    'REQUEST:ADD_TO_CART': "<REQUEST:ADD_TO_CART>", 
+    'REQUEST:COMPARE': "<REQUEST:COMPARE>",
+    'INFORM:DISAMBIGUATE': "<INFORM:DISAMBIGUATE>",
+    'ASK:GET': "<ASK:GET>",
+    'INFORM:GET': "<INFORM:GET>",
+    'REQUEST:GET': "<REQUEST:GET>",
+    "INFORM:REFINE": "<INFORM:REFINE>",
+    'CONFIRM:ADD_TO_CART': '<CONFIRM:ADD_TO_CART>'
+}
+
+# If we use each object token as special token
+NUM_FASHION_ITEMS = 288
+NUM_FURNITURE_ITEMS = 57
+MAX_NUM_OBJ_IN_SCENE = 200
 
 TEMPLATE_PREDICT = "{context} {START_BELIEF_STATE} "
 TEMPLATE_TARGET = ("{context} {START_BELIEF_STATE} {belief_state} "
                    "{END_OF_BELIEF} {response} {END_OF_SENTENCE}")
+TEMPLATE_TARGET_FINAL = ("{context} {START_BELIEF_STATE} {belief_state} "
+                         "{END_OF_BELIEF} {response} {END_OF_SENTENCE} {disambig_str}")
 
-TEMPLATE_PREDICT_USE_META = "{context} {metainfo} {START_BELIEF_STATE} "
-TEMPLATE_TARGET_USE_META = (
-    "{context} {metainfo} {START_BELIEF_STATE} {belief_state} "
-    "{END_OF_BELIEF} {response} {END_OF_SENTENCE}")
+TEMPLATE_PREDICT_USE_OBJVEC = "{context} {objvec} {START_BELIEF_STATE} "
+TEMPLATE_PREDICT_USE_OBJVEC_DET = "{context} {det} {objvec} {START_BELIEF_STATE} "
+TEMPLATE_PREDICT_OBJVEC_FIRST = "{objvec} {context} {START_BELIEF_STATE} "
+TEMPLATE_PREDICT_OBJVEC_FIRST_DET = "{det} {objvec} {context} {START_BELIEF_STATE} "
+TEMPLATE_FINAL = "{context} {START_BELIEF_STATE} {det} {objvec}"  # seg: 2 0 1 0 1, ... 
+
 
 # No belief state predictions and target.
 TEMPLATE_PREDICT_NOBELIEF = "{context} {START_OF_RESPONSE} "
 TEMPLATE_TARGET_NOBELIEF = "{context} {START_OF_RESPONSE} {response} {END_OF_SENTENCE}"
+
 
 prompt_api = api.PromptAPI()
 
 
 def _build_special_tokens(use_multimodal_contexts=True,
                           use_belief_states=True,
-                          use_metainfo=False):
+                          use_object_special_token=True):
     special_tokens = {"eos_token": END_OF_SENTENCE}
     additional_special_tokens = []
+    additional_special_tokens.extend(list(ACTS.values()))
     if use_belief_states:
         additional_special_tokens.append(END_OF_BELIEF)
     else:
@@ -64,11 +112,20 @@ def _build_special_tokens(use_multimodal_contexts=True,
     if use_multimodal_contexts:
         additional_special_tokens.append(START_OF_MULTIMODAL_CONTEXTS)
         additional_special_tokens.append(END_OF_MULTIMODAL_CONTEXTS)
-    if use_metainfo:
-        additional_special_tokens.extend([START_OF_META, END_OF_META])
+    if use_object_special_token:
+        object_special_tokens = [START_OF_DISAMBIGUATION, END_OF_DISAMBIGUATION, START_OF_DETECTION, END_OF_DETECTION, 'shelf', USER, SYSTEM, f"<@0000>", START_OF_OBJ_TOKEN, END_OF_OBJ_TOKEN, OBJ_START, OBJ_END, DET_START, NO_COREF]  # <@0000> means no object
+        for i in range(MAX_NUM_OBJ_IN_SCENE):
+            object_special_tokens.append(f"<{i}>")
+        for i in range(NUM_FASHION_ITEMS):
+            object_special_tokens.append(f"<@1{i:03}>")
+        for i in range(NUM_FURNITURE_ITEMS):
+            object_special_tokens.append(f"<@2{i:03}>")
+        additional_special_tokens.extend(object_special_tokens)
+    # delexicalization
+    additional_special_tokens.extend(list(FASHION_BRAND) + list(FASHION_PRICE) + 
+    list(FASHION_SIZES) + list(FASHION_AVAILABLE_SIZES) + list(FASHION_CUSTOMER_REVIEW) 
+    + list(FURNITURE_BRAND) + list(FURNITURE_PRICE) + list(FURNITURE_CUSTOMER_RATING))
     special_tokens["additional_special_tokens"] = additional_special_tokens
-
-    special_tokens = {"eos_token": END_OF_SENTENCE}
     return special_tokens
 
 
@@ -78,109 +135,234 @@ def represent_visual_objects(object_ids):
     return f"{START_OF_MULTIMODAL_CONTEXTS} {str_objects} {END_OF_MULTIMODAL_CONTEXTS}"
 
 
+def represent_visual_objects_special_token(object_ids, for_belief_state=False):
+    # Stringify visual objects (JSON)
+    str_objects = ", ".join(["<"+str(o)+">" for o in object_ids])
+    if for_belief_state:
+        return str_objects
+    return f"{START_OF_MULTIMODAL_CONTEXTS} {str_objects} {END_OF_MULTIMODAL_CONTEXTS}"
+
+
+def arrange_det(scene_json_folder, scene_id):
+    det_arrange_list = []
+    scene_id_for_img = scene_id[2:] if scene_id.startswith('m_') else scene_id 
+    if scene_id_for_img in det_info:
+        det_scene = det_info[scene_id_for_img]
+        img_w = det_scene['width']
+        img_h = det_scene['height']
+        
+        for det in det_scene['det']:
+            x1 = det['rect']['x1']
+            y1 = det['rect']['y1']
+            x2 = det['rect']['x2']
+            y2 = det['rect']['y2']
+            label = det['label']
+            pos_str = '{}{}[({:.4f},{:.4f},{:.4f},{:.4f},{:.4f})]'.format(DET_START, label, x1/img_w -0.5, y1/img_h -0.5, x2/img_w -0.5, y2/img_h -0.5, (x2-x1)*(y2-y1)/(img_w*img_h))
+            det_arrange_list.append(pos_str)
+        return ''.join(det_arrange_list)
+    else:
+        return ''
+    
+
+def arrange_object_special_tokens(scene_json_folder, scene_ids, object_item2id, insert_bbox_coords, insert_relation):
+    arrange_list = []
+    scene_loaded_list = []
+    obj_dict_possibly_duplicated = dict()
+    for scene_id_idx, scene_id in enumerate(scene_ids):
+        with open(os.path.join(scene_json_folder, f"{scene_id}_scene.json"), 'r') as f_in:
+            scene = json.load(f_in)
+        scene_loaded_list.append(scene)
+        for obj in scene['scenes'][0]['objects']: 
+            obj_dict_possibly_duplicated[obj['index']] = scene_id_idx
+
+    for scene_id_idx, scene_id in enumerate(scene_ids):
+        scene = scene_loaded_list[scene_id_idx]
+        bbox_id = scene_id[2:] if scene_id.startswith('m_') else scene_id 
+        with open(os.path.join(scene_json_folder, f"{bbox_id}_bbox.json"), 'r') as f_in:
+            bbox = json.load(f_in)
+        camera_position = []; camera_dir_vec = []
+        for bbox_item in bbox['Items']:
+            if bbox_item['name'] == 'camera':
+                camera_position = np.array(bbox_item['position'])
+            if bbox_item['name'] == 'camera_forward':
+                camera_dir_vec = np.array(bbox_item['position'])
+
+        if insert_bbox_coords:
+            largest_z_value = 0
+            for obj in scene['scenes'][0]['objects']:
+                position = np.array(obj['position'])
+                obj_displacement = position - camera_position
+                theta = np.dot(obj_displacement, camera_dir_vec) / (np.linalg.norm(obj_displacement)*np.linalg.norm(camera_dir_vec))
+                largest_z_value = max(np.linalg.norm(obj_displacement) * np.cos(theta), largest_z_value)
+
+        if insert_relation:
+            relation = scene['scenes'][0]['relationships']
+
+        for obj in scene['scenes'][0]['objects']:
+            assert obj['index'] in obj_dict_possibly_duplicated, "SOMETHING IS MISSING!"
+            if scene_id_idx == obj_dict_possibly_duplicated[obj['index']]:
+                if insert_bbox_coords:
+                    position = np.array(obj['position'])
+                    obj_displacement = position - camera_position
+                    theta = np.dot(obj_displacement, camera_dir_vec) / (np.linalg.norm(obj_displacement)*np.linalg.norm(camera_dir_vec))
+                    z_value = np.linalg.norm(obj_displacement) * np.cos(theta)
+                    if scene_id in img_size:
+                        img_w = img_size[scene_id]['w']
+                        img_h = img_size[scene_id]['h']
+                        x1, y1, h, w = obj['bbox']
+                        x2, y2 = x1 + w, y1 + h
+                        pos_str = '[({:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f})]'.format(x1/img_w -0.5, y1/img_h -0.5, x2/img_w -0.5, y2/img_h -0.5, (x2-x1)*(y2-y1)/(img_w*img_h), z_value/largest_z_value)
+                    else:
+                        print(f'{scene_id} is not present in img_size!!!')
+                        pos_str = '[({:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f})]'.format(0.0, 0.0, 0.0, 0.0, 0.0, z_value/largest_z_value)
+                else:
+                    pos_str = ''
+
+                if insert_relation:
+                    relation_list = []
+                    _up = relation['up'].get(str(obj['index']), []) if 'up' in relation else []
+                    relation_list.append(_up)
+                    _down = relation['down'].get(str(obj['index']), []) if 'down' in relation else []
+                    relation_list.append(_down)
+                    _left = relation['left'].get(str(obj['index']), []) if 'left' in relation else []
+                    relation_list.append(_left)
+                    _right = relation['right'].get(str(obj['index']), []) if 'right' in relation else []
+                    relation_list.append(_right)
+
+                    relation_str = str(relation_list)  # ex. [[2,4],[],[14,30,23],[1]]
+                else:
+                    relation_str = ''
+                arrange_list.append(OBJ_START + "<" + str(obj['index']) + ">" + pos_str + relation_str + object_item2id[obj['prefab_path']])
+    return ''.join(arrange_list)
+
+
+def get_scene_id(scene_ids, this_turn, so_far=False):
+    """
+        scene_ids: dict, whose keys are dialogue turn idx and values are scene_id
+        this_turn: int, of current dialogue turn idx
+    """
+    od = collections.OrderedDict(
+        sorted(scene_ids.items(), key=lambda t: int(t[0])))
+    od_list = list(od.items())
+    idx_scene = [(int(idx), scene_id) for idx, scene_id in od_list]
+    
+    if so_far:
+        return list([x[1] for x in idx_scene if x[0] <= this_turn])
+
+    for i in range(len(idx_scene)):
+        if idx_scene[i][0] <= this_turn:
+            this_turn_scene_id = idx_scene[i][1]
+    return this_turn_scene_id
+
+
 def format_dialog(dialog,
                   oov=None,
                   len_context=2,
                   use_multimodal_contexts=True,
                   use_belief_states=True,
-                  use_scene_ids=False,
-                  use_metainfo=False):
+                  object_item2id=None,
+                  scene_json_folder='',
+                  insert_bbox_coords=True,
+                  insert_relation=True,
+                  insert_det=True,
+                  revert=False,
+                  final=False,
+                  replace_acts=False,
+                  disambiguation_data=None):
     scene_ids = dialog["scene_ids"]
+    dialog_idx = dialog['dialogue_idx']
     prev_asst_uttr = None
     prev_turn = None
     lst_context = []
-    if use_scene_ids:
-        scene_str = "".join([k + ":" + v + ", " for k, v in scene_ids.items()])
-        scene_str = scene_str.rsplit(',', 1)[0]  # remove tailing ","
-        predict = "Scene ) {scene_str}"
-        target = "Scene ) {scene_str}"
-        yield predict, target
+    
+    this_dial_disambig_info = {}  # {turn_id: disambig_label, turn_id: disambig_label, ...}
+    for disambig in disambiguation_data:
+        if disambig['dialog_id'] == dialog_idx:
+            this_dial_disambig_info[disambig['turn_id']] = disambig['disambiguation_label_gt']
+
 
     for turn_idx, turn in enumerate(dialog[FIELDNAME_DIALOG]):
         user_uttr = turn[FIELDNAME_USER_UTTR].replace("\n", " ").strip()
         user_belief = turn[FIELDNAME_BELIEF_STATE]
         asst_uttr = turn[FIELDNAME_ASST_UTTR].replace("\n", " ").strip()
-
+        this_turn_scene_id = get_scene_id(scene_ids, turn_idx)
+        scene_ids_so_far = get_scene_id(scene_ids, turn_idx, so_far=True)
         # Format main input context
         context = ""
         if prev_asst_uttr:
-            context += f"System : {prev_asst_uttr} "
+            if final:
+                context += f"<SYS> : {prev_asst_uttr} "
+            else:
+                context += f"System : {prev_asst_uttr} "
             if use_multimodal_contexts:
                 # Add multimodal contexts
                 visual_objects = prev_turn[FIELDNAME_SYSTEM_STATE][
                     "act_attributes"]["objects"]
-                context += represent_visual_objects(visual_objects) + " "
 
-        context += f"User : {user_uttr}"
+                if object_item2id is not None:
+                    context += represent_visual_objects_special_token(visual_objects, for_belief_state=False) + " "
+                else:
+                    context += represent_visual_objects(visual_objects) + " "
+        if final:
+            context += f"<USER> : {user_uttr}"
+        else:
+            context += f"User : {user_uttr}"
         prev_asst_uttr = asst_uttr
         prev_turn = turn
 
         # Concat with previous contexts
         lst_context.append(context)
         context = " ".join(lst_context[-len_context:])
-
-        if use_metainfo:
-            # get scene_id
-            od = collections.OrderedDict(
-                sorted(scene_ids.items(), key=lambda t: int(t[0])))
-            od_list = list(od.items())
-            idx_scene = [(int(idx), scene_id) for idx, scene_id in od_list]
-            this_turn_scene_id = ""
-            for i in range(len(idx_scene)):
-                if idx_scene[i][0] <= turn_idx:
-                    this_turn_scene_id = idx_scene[i][1]
-
-            # get objects' meta info in the scene
-            scene_objs = prompt_api.given_scene_get_all_meta(
-                this_turn_scene_id)
-            scene_obj_dict = {}
-
-            for obj in scene_objs:
-                if 'wayfair' not in this_turn_scene_id:
-                    # unique_id, bbox and position, up down left right are omitted
-                    scene_obj_dict[obj['obj'].index] = {
-                        'asset_type': obj['meta'].asset_type,
-                        'customer_review': obj['meta'].customer_review,
-                        'available_sizes': obj['meta'].available_sizes,
-                        'color': obj['meta'].color,
-                        'pattern': obj['meta'].pattern,
-                        'brand': obj['meta'].brand,
-                        'sleeve_length': obj['meta'].sleeve_length,
-                        'type': obj['meta'].type,
-                        'price': obj['meta'].price,
-                        'size': obj['meta'].size
-                    }
-                else:
-                    scene_obj_dict[obj['obj'].index] = {
-                        'brand': obj['meta'].brand,
-                        'color': obj['meta'].color,
-                        'customer_review': obj['meta'].customer_review,
-                        'materials': obj['meta'].materials,
-                        'price': obj['meta'].price,
-                        'type': obj['meta'].type
-                    }
-
-            obj_meta_str = START_OF_META + ' '
-            for key, value in scene_obj_dict.items():
-                obj_meta_str += str(key) + ':' + ' '.join(
-                    [str(v) for v in value.values()]) + ' '
-            obj_meta_str += END_OF_META
+        
+        if final:
+            disambig_str = START_OF_DISAMBIGUATION+END_OF_DISAMBIGUATION
+            if turn_idx in this_dial_disambig_info:
+                disambig_str = START_OF_DISAMBIGUATION + str(this_dial_disambig_info[turn_idx]) + END_OF_DISAMBIGUATION
+        
+        if object_item2id is not None:
+            object_token_arranged = arrange_object_special_tokens(scene_json_folder, scene_ids_so_far, object_item2id, insert_bbox_coords, insert_relation)
+            obj_token_str = START_OF_OBJ_TOKEN + NO_COREF + object_token_arranged + END_OF_OBJ_TOKEN
+        
+        if insert_det:
+            det_arranged = arrange_det(scene_json_folder, this_turn_scene_id)
+            det_str = START_OF_DETECTION + det_arranged + END_OF_DETECTION
 
         # Format belief state
         if use_belief_states:
-            belief_state = []
-            act = user_belief["act"].strip()
-            slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}"
-                                    for k, v in user_belief["act_attributes"]
-                                    ["slot_values"].items())
-            request_slots = ", ".join(
-                user_belief["act_attributes"]["request_slots"])
-            objects = ", ".join(
-                map(str, user_belief["act_attributes"]["objects"]))
-            # for bs_per_frame in user_belief:
-            str_belief_state_per_frame = (
-                f"{act} [ {slot_values} ] ({request_slots}) < {objects} >")
-            belief_state.append(str_belief_state_per_frame)
+            if object_item2id is not None:
+                belief_state = []
+                if replace_acts:
+                    act = '<' + user_belief["act"].strip() + '>'
+                else:
+                    act = user_belief["act"].strip()
+                slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}" if k!='availableSizes' else '{} = {}'.format(k.strip(), str([available_sizes2st[x] for x in v]).replace("'", "").strip()) 
+                # slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}" if k!='availableSizes' else f'{k.strip()} = {str([available_sizes2st[x] for x in v]).replace("\'", "").strip()}'
+                                        for k, v in user_belief["act_attributes"]
+                                        ["slot_values"].items())
+                request_slots = ", ".join(
+                    user_belief["act_attributes"]["request_slots"])
+                objects_str = represent_visual_objects_special_token(user_belief["act_attributes"]["objects"], for_belief_state=True)
+                # for bs_per_frame in user_belief:
+                str_belief_state_per_frame = (
+                    f"{act} [ {slot_values} ] ({request_slots}) < {objects_str} >")
+                belief_state.append(str_belief_state_per_frame)
+            else:
+                belief_state = []
+                if replace_acts:
+                    act = '<' + user_belief["act"].strip() + '>'
+                else:
+                    act = user_belief["act"].strip()
+                slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}"
+                                        for k, v in user_belief["act_attributes"]
+                                        ["slot_values"].items())
+                request_slots = ", ".join(
+                    user_belief["act_attributes"]["request_slots"])
+                objects = ", ".join(
+                    map(str, user_belief["act_attributes"]["objects"]))
+                # for bs_per_frame in user_belief:
+                str_belief_state_per_frame = (
+                    f"{act} [ {slot_values} ] ({request_slots}) < {objects} >")
+                belief_state.append(str_belief_state_per_frame)
 
             # Track OOVs
             if oov is not None:
@@ -190,27 +372,70 @@ def format_dialog(dialog,
 
             str_belief_state = " ".join(belief_state)
             # Format the main input
-            if use_metainfo:
-                predict = TEMPLATE_PREDICT_USE_META.format(
-                    context=context,
-                    metainfo=obj_meta_str,
-                    START_BELIEF_STATE=START_BELIEF_STATE,
-                )
+
+            if object_item2id is not None:
+                if final:
+                    predict = TEMPLATE_FINAL.format(
+                        det=det_str,
+                        objvec=obj_token_str,
+                        context=context,
+                        START_BELIEF_STATE=START_BELIEF_STATE
+                    )
+ 
+                else:
+                    if insert_det:
+                        if not revert:
+                            predict = TEMPLATE_PREDICT_USE_OBJVEC_DET.format(
+                                context=context,
+                                det=det_str,
+                                objvec=obj_token_str,
+                                START_BELIEF_STATE=START_BELIEF_STATE
+                            )
+                        else:
+                            predict = TEMPLATE_PREDICT_OBJVEC_FIRST_DET.format(
+                                det=det_str,
+                                objvec=obj_token_str,
+                                context=context,
+                                START_BELIEF_STATE=START_BELIEF_STATE
+                            )
+                    else:
+                        if not revert:
+                            predict = TEMPLATE_PREDICT_USE_OBJVEC.format(
+                                context=context,
+                                objvec=obj_token_str,
+                                START_BELIEF_STATE=START_BELIEF_STATE
+                            )
+                        else:
+                            predict = TEMPLATE_PREDICT_OBJVEC_FIRST.format(
+                                objvec=obj_token_str,
+                                context=context,
+                                START_BELIEF_STATE=START_BELIEF_STATE
+                            )
             else:
                 predict = TEMPLATE_PREDICT.format(
                     context=context,
                     START_BELIEF_STATE=START_BELIEF_STATE,
                 )
-
-            # Format the main output
-            target = TEMPLATE_TARGET.format(
-                context=context,
-                START_BELIEF_STATE=START_BELIEF_STATE,
-                belief_state=str_belief_state,
-                END_OF_BELIEF=END_OF_BELIEF,
-                response=asst_uttr,
-                END_OF_SENTENCE=END_OF_SENTENCE,
-            )
+            if final:
+                target = TEMPLATE_TARGET_FINAL.format(
+                    context=context,
+                    START_BELIEF_STATE=START_BELIEF_STATE,
+                    belief_state=str_belief_state,
+                    END_OF_BELIEF=END_OF_BELIEF,
+                    response=asst_uttr,
+                    END_OF_SENTENCE=END_OF_SENTENCE,
+                    disambig_str=disambig_str,
+                )
+            else:
+                # Format the main output
+                target = TEMPLATE_TARGET.format(
+                    context=context,
+                    START_BELIEF_STATE=START_BELIEF_STATE,
+                    belief_state=str_belief_state,
+                    END_OF_BELIEF=END_OF_BELIEF,
+                    response=asst_uttr,
+                    END_OF_SENTENCE=END_OF_SENTENCE,
+                )
         else:
             # Format the main input
             predict = TEMPLATE_PREDICT_NOBELIEF.format(
@@ -228,30 +453,47 @@ def format_dialog(dialog,
 
 def convert_json_to_flattened(
     input_path_json,
+    disambiguate_json,
     output_path_predict,
     output_path_target,
     len_context=2,
     use_multimodal_contexts=True,
     use_belief_states=True,
-    use_scene_ids=False,
-    use_metainfo=False,
     input_path_special_tokens="",
     output_path_special_tokens="",
+    object_special_token_item2id="",
+    scene_json_folder='',
+    insert_bbox_coords=True,
+    insert_relation=True,
+    insert_det=True,
+    revert=False,
+    final=False,
+    replace_acts=False
 ):
     """
     Input: JSON representation of the dialogs
     Output: line-by-line stringified representation of each turn
     """
+    if object_special_token_item2id:
+        with open(object_special_token_item2id, 'r') as f_in:
+            object_item2id = json.load(f_in)
+        use_object_special_token = True
+    else:
+        use_object_special_token = False
 
     with open(input_path_json, "r") as f_in:
         data = json.load(f_in)["dialogue_data"]
+
+    with open(disambiguate_json, "r") as f_in:
+        disambiguation_data = json.load(f_in)
 
     if input_path_special_tokens:
         with open(input_path_special_tokens, "r") as f_in:
             special_tokens = json.load(f_in)
     else:
         special_tokens = _build_special_tokens(use_multimodal_contexts,
-                                               use_belief_states, use_metainfo)
+                                               use_belief_states,
+                                               use_object_special_token=use_object_special_token)
 
     # If a new output path for special tokens is given, we track new OOVs
     oov = None
@@ -263,8 +505,15 @@ def convert_json_to_flattened(
                          len_context=len_context,
                          use_multimodal_contexts=use_multimodal_contexts,
                          use_belief_states=use_belief_states,
-                         use_scene_ids=use_scene_ids,
-                         use_metainfo=use_metainfo)
+                         object_item2id=object_item2id,
+                         scene_json_folder=scene_json_folder,
+                         insert_bbox_coords=insert_bbox_coords,
+                         insert_relation=insert_relation,
+                         insert_det=insert_det,
+                         revert=revert,
+                         final=final,
+                         replace_acts=replace_acts,
+                         disambiguation_data=disambiguation_data)
     predicts, targets = zip(*chain.from_iterable(map(_formatter, data)))
 
     directory = os.path.dirname(output_path_predict)
@@ -291,25 +540,53 @@ def convert_json_to_flattened(
 
 
 if __name__ == '__main__':
-    input_path_json = '/home/haeju/Dev/dstc/dstc10/ours/data/simmc2_dials_dstc10_train.json'
-    output_path_predict = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_predict.txt'
-    output_path_target = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc2_dials_dstc10_train_target.txt'
-    output_path_special_tokens = '/home/haeju/Dev/dstc/dstc10/ours/model/mm_dst/bart_dst/data_custom/simmc_special_tokens.json'
-    len_context = 2
-    input_path_special_tokens = ""
-    use_multimodal_contexts = True
-    use_belief_states = True
-    use_scene_ids = True
-    use_metainfo = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_path_json', type=str)
+    parser.add_argument('--disambiguate_json', type=str)
+    parser.add_argument('--output_path_predict', type=str)
+    parser.add_argument('--output_path_target', type=str)
+    parser.add_argument('--output_path_special_tokens', type=str)
+    parser.add_argument('--len_context', default=2, type=int)
+    parser.add_argument('--input_path_special_tokens', default='', type=str)
+    parser.add_argument('--use_multimodal_contexts', type=int, default=1)
+    parser.add_argument('--use_belief_states', type=int, default=1)
+    parser.add_argument('--object_special_token_item2id', type=str)
+    parser.add_argument('--scene_json_folder', type=str)
+    parser.add_argument('--insert_bbox_coords', type=int, default=1)
+    parser.add_argument('--insert_relation', type=int, default=1)
+    parser.add_argument('--insert_det', type=int, default=1)
+    parser.add_argument('--revert', type=int, default=0)
+    parser.add_argument('--final', type=int, default=0)
+    parser.add_argument('--replace_acts', type=int, default=1)
+    parser.add_argument('--img_size_picklefile', type=str, default='')
+    parser.add_argument('--det_info_picklefile', type=str, default='')
+    args = parser.parse_args()
+    
+
+    if args.insert_bbox_coords:
+        with open(args.img_size_picklefile, 'rb') as f:
+            img_size = pickle.load(f)
+    if args.insert_det:
+        with open(args.det_info_picklefile,'rb') as f:
+            det_info = pickle.load(f)
 
     convert_json_to_flattened(
-        input_path_json,
-        output_path_predict,
-        output_path_target,
-        input_path_special_tokens=input_path_special_tokens,
-        output_path_special_tokens=output_path_special_tokens,
-        len_context=len_context,
-        use_multimodal_contexts=use_multimodal_contexts,
-        use_belief_states=use_belief_states,
-        use_scene_ids=use_scene_ids,
-        use_metainfo=use_metainfo)
+        args.input_path_json,
+        args.disambiguate_json,
+        args.output_path_predict,
+        args.output_path_target,
+        input_path_special_tokens=args.input_path_special_tokens,
+        output_path_special_tokens=args.output_path_special_tokens,
+        len_context=args.len_context,
+        use_multimodal_contexts=args.use_multimodal_contexts,
+        use_belief_states=args.use_belief_states,
+        object_special_token_item2id=args.object_special_token_item2id,
+        scene_json_folder=args.scene_json_folder,
+        insert_bbox_coords=args.insert_bbox_coords,
+        insert_relation=args.insert_relation,
+        insert_det=args.insert_det,
+        revert=args.revert,
+        final=args.final,
+        replace_acts=args.replace_acts)
+
+
