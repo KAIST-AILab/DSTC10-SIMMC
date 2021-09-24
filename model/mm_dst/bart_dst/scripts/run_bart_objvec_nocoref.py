@@ -8,6 +8,7 @@ import copy
 import re
 import shutil
 import ast
+import pdb
 from typing import Dict, List, Tuple
 from collections import OrderedDict
 import numpy as np
@@ -140,6 +141,7 @@ class LineByLineDataset(Dataset):
         
         assert len(target_lines) == len(self.examples)
 
+        
         corefs = []  # [ [corefobj1(index), corefobj2], [corefobj1], [...], ...]
         for line in target_lines:
             dst_start = line.index('Belief State : ')
@@ -147,12 +149,14 @@ class LineByLineDataset(Dataset):
             dst = line[dst_start:dst_end]
             coref_referred = [obj_index for obj_index in re.findall(r"<[^<^>^ ]+>", dst)]
             corefs.append(coref_referred)
-            available_sizes = [ast.literal_eval(availSize.split('=')[1]) for availSize in re.findall(r"availableSizes = \[.*\]", dst)][0]
-            available_sizes = [available_sizes2st[size] for size in available_sizes]
+            # if 'availableSizes =' in dst:                
+            #     available_sizes = [ast.literal_eval(availSize.split('=')[1].strip()) for availSize in re.findall(r"availableSizes = \[.*\]", dst)][0]
+            #     available_sizes = [available_sizes2st[size] for size in available_sizes]
             line_split = line.split('Belief State : ')
             after_belief_state = line_split[1]
             after_belief_state = re.sub(r"<((<[0-9]+>)|,| )*>", "", after_belief_state)
-            after_belief_state = re.sub(r"availableSizes = \[.*\]", str(available_sizes), after_belief_state)
+            # if 'availableSizes =' in after_belief_state:
+            #     after_belief_state = re.sub(r"availableSizes = \[.*\]", str(available_sizes), after_belief_state)
             targets.append('=====' + after_belief_state)
         self.generation_labels = tokenizer(targets, add_special_tokens=True).input_ids
 
