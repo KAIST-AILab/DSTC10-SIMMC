@@ -1,2 +1,0 @@
-accuracy = 0.4475945017182131
-perplexity = tensor(1.0012)
