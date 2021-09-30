@@ -32,7 +32,7 @@ Download the dataset from [repository][simmc2] via git-lfs. Run the script `rear
 ## Model Parameters
 Download the model parameters from drive link below:
 
-* Google Drive [link](https://drive.google.com/drive/u/0/folders/1P_FTLrxp84gVrUI7HG7d-HttnRh8H9xM))
+* Google Drive [link](https://drive.google.com/drive/u/0/folders/1P_FTLrxp84gVrUI7HG7d-HttnRh8H9xM)
 
 ## **Train Model**
 Our model is jointly trained with losses from each tasks based on BART.
