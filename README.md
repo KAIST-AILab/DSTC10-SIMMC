@@ -34,6 +34,7 @@ Download the model parameters from drive link below:
 
 ## **Train Model**
 Our model is jointly trained with losses from each tasks based on BART.
+
 Make sure to download simmc2-data into ./data before training. 
 1. Move into `scripts`, Run training.
 
@@ -61,6 +62,7 @@ python run_bart_multi_task.py \
 ```
 ## **Evaluation**
 All tasks can be evaluated with the same model parameters.
+
 **1. Disambiguation Task**
 ```shell
 bash run_bart_multi_task_disambigutaion.sh
