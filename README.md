@@ -59,7 +59,7 @@ python run_bart_multi_task.py \
 --eval_steps=3000  \
 --warmup_steps=10000 \
 ```
-## **Evaluation Model**
+## **Evaluation**
 All tasks can be evaluated with the same model parameters.
 1. Disambiguation Task
 ```shell
@@ -78,11 +78,12 @@ python run_bart_multi_task_disambiguation.py \
 ```
 
 2. MM_DST & Response Generation Task 
+
 ```shell
 bash run_bart_multi_task_mm_dst.sh
 ```
 or
-'''shell
+```shell
  python run_bart_multi_task_mm_dst.py \
   --stop_token='<EOS>' \
   --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
@@ -93,6 +94,7 @@ or
 ```
  
 3. Retrieval Task
+
 ```shell
 bash run_bart_multi_task_retrieval.sh
 ```
