@@ -61,7 +61,7 @@ python run_bart_multi_task.py \
 ```
 ## **Evaluation**
 All tasks can be evaluated with the same model parameters.
-1. **Disambiguation Task**
+**1. Disambiguation Task**
 ```shell
 bash run_bart_multi_task_disambigutaion.sh
 ```
@@ -77,7 +77,7 @@ python run_bart_multi_task_disambiguation.py \
  --model_dir=<YOUR MODEL CHECKPOINTS> 
 ```
 
-2. **MM_DST & Response Generation Task** 
+**2. MM_DST & Response Generation Task** 
 
 ```shell
 bash run_bart_multi_task_mm_dst.sh
@@ -93,7 +93,7 @@ or
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
  
-3. **Retrieval Task**
+**3. Retrieval Task**
 
 ```shell
 bash run_bart_multi_task_retrieval.sh
