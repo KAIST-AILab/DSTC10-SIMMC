@@ -5,19 +5,21 @@
 Download the dataset from [repository][simmc2] via git-lfs. Run the script `rearrange.sh` to rearrange the `data` folder in the following format.
 
 ```
-|-- images                                          # scene images
+|-- images                                                # scene images
 |   |-- cloth_store_1_1_1.png
 |   |-- cloth_store_1_1_2.png
 |   `-- ...
-|-- jsons                                           # bbox and scene jsons
+|-- jsons                                                 # bbox and scene jsons
 |   |-- cloth_store_1_1_1_bbox.json
 |   |-- cloth_store_1_1_1_scene.json
 |   `-- ...
-|-- fashion_prefab_metadata_all.json                # metadata (fashion)
-|-- furniture_prefab_metadata_all.json              # metadata (furniture)
-|-- simmc2_dials_dstc10_dev.json                    # dialogue data (dev)
-|-- simmc2_dials_dstc10_devtest.json                # dialogue data (devtest)
-`-- simmc2_dials_dstc10_train.json                  # dialogue data (train)
+|-- fashion_prefab_metadata_all.json                      # metadata (fashion)
+|-- furniture_prefab_metadata_all.json                    # metadata (furniture)
+|-- simmc2_dials_dstc10_dev.json                          # dialogue data (dev)
+|-- simmc2_dials_dstc10_devtest.json                      # dialogue data (devtest)
+|-- simmc2_dials_dstc10_train.json                        # dialogue data (train)
+|-- simmc2_dials_dstc10_dev_retrieval_candidate.json      # retrieval data (dev)
+`-- simmc2_dials_dstc10_devtest_retrieval_candidate.json  # retrieval data (devtest)
 ```
 
 **NOTE**: Some of the scene images are corrupted and therefore ignored. We do not make use of images in this model other than getting image size.
