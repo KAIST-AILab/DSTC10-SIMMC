@@ -32,36 +32,80 @@ Download the model parameters from drive link below:
 
 * Google Drive [link](https://drive.google.com/drive/folders/1Qup6UCpt-U1v-Q7O8cYZQZddc9mo2d3U)
 
-## **Subtask 1** : Disambiguation Classification
-1. Move into `model/disambiguate`. Running the model automatically preprocesses data.
+## **Train Model**
+Our model is jointly trained with losses from each tasks based on BART.
+Make sure to download simmc2-data into ./data before training. 
+1. Move into `scripts`, Run training.
 
 ```shell
-python run.py \
-  --do-train # training
-  --do-test  # evaluating
-  --checkpoint / --pretrained_checkpoint # checkpoint path (default: roberta-large)
+bash run_bart_multi_task.sh
 ```
+or 
 
-## **Subtask 2, 3, 4** : Multimodal Coreference Resolution, Dialogue State Tracking, Repsonse Generation
-Our model is an end-to-end generative model based on BART. Move into `model/mm_dst/bart_dst/scripts`.
-
-1. Preprocess data with
 ```shell
-bash make_data_object_special.sh
+python run_bart_multi_task.py \
+--add_special_tokens=../data_object_special/simmc_special_tokens.json \
+--item2id=./item2id.json \
+--train_input_file=../data_object_special/simmc2_dials_dstc10_train_predict.txt \
+--train_target_file=../data_object_special/simmc2_dials_dstc10_train_target.txt  \
+--disambiguation_file=../data_object_special/simmc2_dials_dstc10_train_disambiguation_label.txt \
+--response_file=../data_object_special/simmc2_dials_dstc10_train_response.txt \
+--eval_input_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
+--eval_target_file=../data_object_special/simmc2_dials_dstc10_devtest_target.txt \
+--output_dir=../multi_task/model \
+--train_batch_size=12 \
+--output_eval_file=../multi_task/model/report.txt \
+--num_train_epochs=10  \
+--eval_steps=3000  \
+--warmup_steps=10000 \
 ```
-
-2. Run training
+## **Evaluation Model**
+All tasks can be evaluated with the same model parameters.
+1. Disambiguation Task
 ```shell
-bash run_bart_objvec_nocoref.sh
+bash run_bart_multi_task_disambigutaion.sh
 ```
+or
 
-3. Run generation / evaluation.
 ```shell
-bash run_bartobjvec_nocoref_gen.sh
+python run_bart_multi_task_disambiguation.py \
+ --path_output=disambiguation_report.json \
+ --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
+ --disambiguation_file=../data_object_special/simmc2_dials_dstc10_devtest_inference_disambiguation.json \
+ --item2id item2id.json \
+ --add_special_tokens=../data_object_special/simmc_special_tokens.json \
+ --model_dir=<YOUR MODEL CHECKPOINTS> 
 ```
 
-## **Subtask 5** : Response Retrieval
-
+2. MM_DST & Response Generation Task 
+```shell
+bash run_bart_multi_task_mm_dst.sh
+```
+or
+'''shell
+ python run_bart_multi_task_mm_dst.py \
+  --stop_token='<EOS>' \
+  --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
+  --path_output=mm_dst_result.txt \
+  --item2id=./item2id.json \
+  --add_special_tokens=/home/yschoi/DSTC10-SIMMC/model/mm_dst/bart_dst/data_object_special/simmc_special_tokens.json \
+  --model_dir=<YOUR MODEL CHECKPOINTS>
+```
+ 
+3. Retrieval Task
+```shell
+bash run_bart_multi_task_retrieval.sh
+```
+or
+```shell
+python run_bart_multi_task_retrieval.py \
+--path_output=retrieval_result.json \
+--prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
+--candidate_file=../data_object_special/simmc2_dials_dstc10_devtest_retrieval.json \
+--item2id item2id.json \
+--add_special_tokens=../data_object_special/simmc_special_tokens.json \
+--model_dir=<YOUR MODEL CHECKPOINTS>
+```
 
 ## References
 ```
