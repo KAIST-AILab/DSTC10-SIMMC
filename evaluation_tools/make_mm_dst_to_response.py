@@ -32,19 +32,21 @@ if __name__=="__main__":
 
     args = parser.parse_args()
     input_path_text = args.input_path_text
-    output_path_txt = args.output_path_json
-    dialogue_meta_data = json.load(open(args.dialog_meta_data)) # List[Dict]
+    output_path_json = args.output_path_json
+    dialog_meta_data = json.load(open(args.dialog_meta_data)) # List[Dict]
     
     results = [] 
+    
     with open(input_path_text, 'r') as f:
-        for idx, line in f.read().splitlines):
-            response = line.split("<EOB>")[1]
-            print(response)
-            ipdb.set_trace()
+        lines = f.readlines()
+        for line, meta in zip(lines, dialog_meta_data):
+            response = line.split("<EOB>")[1].split("<EOS>")[0].strip()
             results.append({
-                "dialogu_id" : meta[idx]["dialog_id"],
+                "dialog_id" : meta["dialog_id"],
                 "predictions" : [{
-                    "turn_id" : meta[idx]["turn_id"],
+                    "turn_id" : meta["turn_id"],
                     "response" : response
                 }]
             })
+    
+    json.dump(results, open(output_path_json, "w"), indent=4)
