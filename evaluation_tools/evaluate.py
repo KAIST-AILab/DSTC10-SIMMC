@@ -16,7 +16,7 @@ root directory of this source tree.
 import argparse
 import json
 from convert_baseline import parse_flattened_results_from_file
-from utils.evaluate_dst import evaluate_from_flat_list
+from evaluate_dst import evaluate_from_flat_list
 
 
 if __name__ == "__main__":
@@ -48,4 +48,4 @@ if __name__ == "__main__":
 
     # Save report
     with open(output_path_report, "w") as f_out:
-        json.dump(report, f_out)
+        json.dump(report, f_out, indent=4)
