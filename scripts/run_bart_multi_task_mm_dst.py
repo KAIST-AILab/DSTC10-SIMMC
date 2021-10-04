@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from torch.nn.utils.rnn import pad_sequence
 from transformers import BartForConditionalGeneration, BartTokenizerFast
 from run_bart_multi_task import BoxEmbedding, NoCorefHead, FashionEncoderHead, FurnitureEncoderHead
-
+import ipdb
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -83,21 +83,26 @@ def correct_available_sizes(text):
         print('text:', text)
 
 def remove_bos_eos_startequal(text):
-    text = text.replace('</s>', '').replace('<s>', '').replace('=====', '')
+    text = text.split("</s>")[0].replace('<s>', '')
     return text
 
 def replace_special_chars(text):
     def rep(match_re_obj):
         return match_re_obj.group(0).replace('<','').replace('>','')
-    text = re.sub("<[0-9]+>", rep, text)
-    available_sizes_st_list = [('<A>', 'XS'), ('<B>', 'S'), ('<C>', 'M'), ('<D>', 'L'), ('<E>', 'XL'), ('<F>', 'XXL')]
+    available_sizes_st_list = [('<A>', "'XS'"), ('<B>', "'S'"), ('<C>', "'M'"), ('<D>', "'L'"), ('<E>', "'XL'"), ('<F>', "'XXL'")]
     for size_tuple in available_sizes_st_list:
-        text.replace(size_tuple[0], size_tuple[1])
+        text = text.replace(size_tuple[0], size_tuple[1])
+    text = re.sub("<[0-9]+>", rep, text)
     return text
 
 def insert_coref(text, coref_chars: list):
     """ coref_chars: [<11>, <44>, ...] """
-    coref_pos_start, coref_pos_end = [(m.start(0), m.end(0)) for m in re.finditer(r"\) *<EOB>", text)][0]
+    try:
+        coref_pos_start, coref_pos_end = [(m.start(0), m.end(0)) for m in re.finditer(r"\) *<EOB>", text)][0]
+    
+    except:
+        ipdb.set_trace()
+        
     coref_list = [int(coref.replace('<', '').replace('>', '')) for coref in coref_chars]
     coref_str = str(coref_list).replace('[', '< ').replace(']',' >') if coref_list else '<  >'
     return text[:coref_pos_start+1] + ' ' + coref_str + ' <EOB>' + text[coref_pos_end:]
@@ -135,7 +140,9 @@ class GenerationDataset(Dataset):
                     original_line = re.sub(r" <SOO.*EOO>", "", original_line)
                     lines.append(line)
                     self.original_lines.append(original_line)
-        self.examples = tokenizer(lines, add_special_tokens=True).input_ids
+        encode_text = tokenizer(lines, add_special_tokens=True)
+        self.examples = encode_text.input_ids
+        self.examples_attention_mask = encode_text.attention_mask
         
         nocoref_id = get_input_id(tokenizer, NO_COREF)[0]
         self.nocoref = []  # [position, position, position, ...]
@@ -184,7 +191,7 @@ class GenerationDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, i):
-        return torch.tensor(self.examples[i], dtype=torch.long), self.original_lines[i], self.boxes[i], self.misc[i], self.nocoref[i]
+        return torch.tensor(self.examples[i], dtype=torch.long), torch.tensor(self.examples_attention_mask[i], dtype=torch.long), self.original_lines[i], self.boxes[i], self.misc[i], self.nocoref[i]
 
 def main():
     parser = argparse.ArgumentParser()
@@ -207,7 +214,7 @@ def main():
     parser.add_argument(
         '--batch_size',
         type=int,
-        default=1
+        default=36
     )
     parser.add_argument(
         "--add_special_tokens",
@@ -217,12 +224,6 @@ def main():
         help="Optional file containing a JSON dictionary of special tokens that should be added to the tokenizer.",
     )
     parser.add_argument("--length", type=int, default=150)
-    parser.add_argument(
-        "--stop_token",
-        type=str,
-        default="<EOS>",
-        help="Token at which text generation is stopped",
-    )
     parser.add_argument(
         "--temperature",
         type=float,
@@ -280,9 +281,10 @@ def main():
     logger.info(f"Added {num_added_toks} tokens")
 
     model = BartForConditionalGeneration.from_pretrained(args.model_dir)
+    model.config.decoder_start_token_id = 0
     model.to(args.device)
-    checkpoint = torch.load(os.path.join(args.model_dir, 'aux_nets.pt'))
 
+    checkpoint = torch.load(os.path.join(args.model_dir, 'aux_nets.pt'))
     box_embedding = BoxEmbedding(model.config.d_model).to(args.device)
     nocoref_head = NoCorefHead(model.config.d_model).to(args.device)
     fashion_enc_head = FashionEncoderHead(model.config.d_model).to(args.device)
@@ -300,19 +302,20 @@ def main():
 
     def collate_bart(examples):
         enc_input = list(map(lambda x: x[0], examples))
-        original_lines = list(map(lambda x: x[1], examples))
-        boxes = list(map(lambda x: x[2], examples))
-        misc = list(map(lambda x: x[3], examples))
-        nocoref = list(map(lambda x: x[4], examples))
+        enc_attention_mask = list(map(lambda x: x[1], examples))
+        original_lines = list(map(lambda x: x[2], examples))
+        boxes = list(map(lambda x: x[3], examples))
+        misc = list(map(lambda x: x[4], examples))
+        nocoref = list(map(lambda x: x[5], examples))
         if tokenizer._pad_token is None:
             enc_input_pad = pad_sequence(enc_input, batch_first=True)
         else:
             enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
-        return enc_input_pad, original_lines, boxes, misc, nocoref
+        enc_attention_pad = pad_sequence(enc_attention_mask, batch_first=True, padding_value=0)
+        return enc_input_pad, enc_attention_pad, original_lines, boxes, misc, nocoref
     
     with open(args.item2id, 'r') as f:
         item2id = json.load(f)
-    assert 'devtest' in args.prompts_from_file, 'generation should be about devtest split file' 
     
     decode_dataset = GenerationDataset(args.prompts_from_file, tokenizer)
     decode_sampler = SequentialSampler(decode_dataset)
@@ -330,12 +333,13 @@ def main():
     for i, batch in enumerate(tqdm(decode_dataloader, desc='Decoding')):  # should be 1-batchsized batch
         
         enc_input = batch[0].to(args.device)
-        original_lines = batch[1]
-        boxes = batch[2] # batch, num_obj_per_line, 6
-        misc = batch[3]  # batch, num_obj_per_line, dict
-        nocoref = batch[4]
+        enc_input_attention = batch[1].to(args.device)
+        original_lines = batch[2]
+        boxes = batch[3] # batch, num_obj_per_line, 6
+        misc = batch[4]  # batch, num_obj_per_line, dict
+        nocoref = batch[5]
         batch_size = len(misc)
-        assert batch_size == 1, "batch_size is not 1 !!"
+        # assert batch_size == 1, "batch_size is not 1 !!"
         with torch.no_grad():
             inputs_embeds = model.model.encoder.embed_tokens(enc_input) * model.model.encoder.embed_scale
             for b_idx in range(batch_size):  # in a batch
@@ -343,15 +347,15 @@ def main():
                 for obj_idx in range(len(misc[b_idx])):
                     pos = misc[b_idx][obj_idx]['pos']
                     inputs_embeds[b_idx][pos] += box_embedded[obj_idx]
-            encoder_outputs = model.model.encoder(inputs_embeds=inputs_embeds, return_dict=True)  # check this line
+            encoder_outputs = model.model.encoder(inputs_embeds=inputs_embeds, attention_mask=enc_input_attention, return_dict=True)  # check this line
         
         nocoref_logits = torch.stack([nocoref_head(encoder_outputs.last_hidden_state[b_idx][nocoref[b_idx]]) for b_idx in range(batch_size)])
-        is_nocoref = False
-        if nocoref_logits.argmax(dim=1).item():
-            is_nocoref = True
+        is_nocoref = nocoref_logits.argmax(dim=1).bool()
 
         coref_obj_list = []
+        coref_check = []
         for b_idx in range(batch_size):
+            coref_obj_each_batch = []
             for obj_idx in range(len(misc[b_idx])):
                 pos = misc[b_idx][obj_idx]['pos']
                 # hidden_concat: (num_obj, 2*model)
@@ -373,12 +377,16 @@ def main():
             coref_predict = coref.argmax(dim=1).tolist()  # (num_objs)
             for i, coref_signal in enumerate(coref_predict):
                 if coref_signal:
-                    coref_obj_list.append(obj_indices[i])
+                    coref_obj_each_batch.append(obj_indices[i])
+            coref_obj_list.append(coref_obj_each_batch)
+            coref_check.append(True if len(coref_obj_each_batch) > 0 else False)
         
-        if is_nocoref and coref_obj_list:
+        check = torch.logical_and(is_nocoref.cpu(), torch.tensor(coref_check, dtype=torch.bool))
+        if check.any():
             print("is_nocoref and object is both on!!! THIS SHOULD NOT HAPPEN!")
-            # is_nocoref takes precedence
-            coref_obj_list = []
+            idx = (check == True).nonzero(as_tuple=True)[0].tolist()
+            for i in idx:
+                coref_obj_list[i] = []
 
 
         output_sequences = model.generate(
@@ -397,51 +405,34 @@ def main():
         generated_sequences = []
         generated_sequences_coref_replaced = []
         
-        for generated_sequence_idx, generated_sequence in enumerate(output_sequences):
-            # print(
-            #     "=== GENERATED SEQUENCE {sequence_idx}, {promt_idx}/{n_prompts} ===".format(
-            #         sequence_idx=generated_sequence_idx + 1,
-            #         promt_idx=i + 1,
-            #         n_prompts=n_prompts,
-            #     )
-            # )
-            generated_sequence = generated_sequence.tolist()
-            text = tokenizer.decode(
-                generated_sequence, clean_up_tokenization_spaces=True
-            )
+        predicts = tokenizer.batch_decode(output_sequences, include_special_token=True)
+        for sequence_idx, text in enumerate(predicts):
+            if sequence_idx == 0:
+                print(
+                    "=== GENERATED SEQUENCE {sequence_idx}, {promt_idx}/{n_prompts} ===".format(
+                        sequence_idx=sequence_idx + 1,
+                        promt_idx=i + 1,
+                        n_prompts=n_prompts,
+                    )
+                )
+                print("Before replace : " + text.split("</s>")[0].strip())
             
-            text = text[: text.find(args.stop_token) if args.stop_token else None]
-            # if args.correct_act:
-            #     text = correct_action(remove_bos_eos(text), correction_act_list[args.correct_act]) + "<EOS>"
-            # else:
-            text = remove_bos_eos_startequal(text) + "<EOS>"
-
-            text = correct_available_sizes(text)
-
+            text = remove_bos_eos_startequal(text)
+            # text = correct_available_sizes(text)
             text_coref_replaced = copy.deepcopy(text)
-            total_sequence = replace_special_chars(original_lines[0] + text_coref_replaced)
-            total_sequence_coref_replaced = insert_coref(total_sequence, coref_obj_list)
-
+            total_sequence = replace_special_chars(original_lines[sequence_idx] + text_coref_replaced)
+            total_sequence_coref_replaced = insert_coref(total_sequence, coref_obj_list[sequence_idx])
             generated_sequences_coref_replaced.append(total_sequence_coref_replaced)
 
-            # print('total_sequence_coref_replaced:', total_sequence_coref_replaced, '\n')
+            if sequence_idx == 0:
+                print('total_sequence_coref_replaced:', total_sequence_coref_replaced, '\n')
 
-        results_coref_replaced.append(generated_sequences_coref_replaced)
-
-    # directory = os.path.dirname(args.path_output)
-
-    # if not os.path.exists(directory):
-    #     os.makedirs(directory, exist_ok=True)
-
-    str_results_coref_replaced = "\n".join(
-        [" || ".join(sequences) for sequences in results_coref_replaced]
-    )
-
+        results_coref_replaced.extend(generated_sequences_coref_replaced)
     with open(args.path_output, "w") as f_out:
-        f_out.write(str_results_coref_replaced)
+        for line in results_coref_replaced:
+            f_out.write(line+"\n")
     
     return results_coref_replaced
-
 
 if __name__ == "__main__":
     main()

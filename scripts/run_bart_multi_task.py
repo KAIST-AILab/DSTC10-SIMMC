@@ -90,14 +90,12 @@ START_OF_OBJ_TOKEN = "<SOO>"
 END_OF_OBJ_TOKEN = "<EOO>"
 NO_COREF = "<NOCOREF>"
 
-
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
-
 
 def get_input_id(tokenizer, tokens):
     return tokenizer(tokens).input_ids[1:-1]
@@ -127,7 +125,7 @@ class LineByLineDataset(Dataset):
             for line in response.read().splitlines():
                 if (len(line) > 0 and not line.isspace()):
                     response_list.append(line)
-            self.response_input_ids = tokenizer(response_list, add_special_tokens=True).input_ids
+            self.response = response_list
             print("Done Load Response File....")
         
         # Other tasks
@@ -147,13 +145,14 @@ class LineByLineDataset(Dataset):
                     self.boxes.append(line_boxes)
                     line = re.sub(r"\[\([^\)]*\)\]", "", line)
                     lines.append("<DISAM> "+line)
-        self.examples = tokenizer(lines, add_special_tokens=True).input_ids
-
+        encode_text = tokenizer(lines, add_special_tokens=True)
+        self.examples = encode_text.input_ids
+        self.examples_attention_mask = encode_text.attention_mask
         # extract generation target
         targets = []
         with open(target_file, encoding="utf-8") as f:
             target_lines = [
-                "<DISAM> "+line
+                line
                 for line in f.read().splitlines()
                 if (len(line) > 0 and not line.isspace())
             ]
@@ -176,9 +175,9 @@ class LineByLineDataset(Dataset):
             after_belief_state = re.sub(r"<((<[0-9]+>)|,| )*>", "", after_belief_state)
             # if 'availableSizes =' in after_belief_state:
             #     after_belief_state = re.sub(r"availableSizes = \[.*\]", str(available_sizes), after_belief_state)
-            targets.append('=====' + after_belief_state)
-        self.generation_labels = tokenizer(targets, add_special_tokens=True).input_ids
-
+            # targets.append('=====' + after_belief_state)
+            targets.append(after_belief_state)
+        self.generation = targets
 
         nocoref_id = get_input_id(tokenizer, NO_COREF)[0]
         self.nocoref = []  # [(position, label), (position, label), (position, label)], 
@@ -235,21 +234,19 @@ class LineByLineDataset(Dataset):
             self.misc.append(line_labels)
         print("Done Load Main File....")
         if not evaluation:        
-            assert len(self.examples) == len(self.disambiguation_labels) == len(self.response_input_ids)
+            assert len(self.examples) == len(self.disambiguation_labels) == len(self.response)
+    
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, i):
         if not self.evaluation:
-            return torch.tensor(self.examples[i], dtype=torch.long), \
-                    torch.tensor(self.generation_labels[i], dtype=torch.long), \
-                    self.boxes[i], self.misc[i], self.nocoref[i], \
-                    torch.tensor(self.disambiguation_labels[i], dtype=torch.long), \
-                    torch.tensor(self.response_input_ids[i])
-        
-        return torch.tensor(self.examples[i], dtype=torch.long), \
-                torch.tensor(self.generation_labels[i], dtype=torch.long), \
-                self.boxes[i], self.misc[i], self.nocoref[i]
+            return torch.tensor(self.examples[i], dtype=torch.long), torch.tensor(self.examples_attention_mask[i], dtype=torch.long), \
+                    self.generation[i], self.boxes[i], self.misc[i], self.nocoref[i], torch.tensor(self.disambiguation_labels[i], dtype=torch.long), \
+                    self.response[i]
+
+        return torch.tensor(self.examples[i], dtype=torch.long), torch.tensor(self.examples_attention_mask[i], dtype=torch.long), \
+            self.generation[i], self.boxes[i], self.misc[i], self.nocoref[i]
 
 
 def get_dataset(args, tokenizer, all_objects_meta, train=True):
@@ -266,10 +263,13 @@ def get_dataset(args, tokenizer, all_objects_meta, train=True):
     if n != 0:
         print(f"Truncating from {len(dataset.examples)} examples to {len(dataset.examples[:-n])}")
         dataset.examples = dataset.examples[:-n]
-        dataset.generation_labels = dataset.generation_labels[:-n]
+        dataset.generation = dataset.generation[:-n]
         dataset.boxes = dataset.boxes[:-n]
         dataset.misc = dataset.misc[:-n]
         dataset.nocoref = dataset.nocoref[:-n]
+        if train:
+            dataset.disambiguation_labels = dataset.disambiguation_labels[:-n]
+            dataset.response = dataset.response[:-n]
     return dataset
 
 class BoxEmbedding(nn.Module):
@@ -491,33 +491,28 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
 
     def collate_bart(examples):
         enc_input = list(map(lambda x: x[0], examples))
-        decoder_labels = list(map(lambda x: x[1], examples))
-        boxes = list(map(lambda x: x[2], examples))  
-        misc = list(map(lambda x: x[3], examples))
-        nocoref = list(map(lambda x: x[4], examples))
-        disambiguation_labels = list(map(lambda x: x[5], examples))
-        response = list(map(lambda x: x[6], examples))
+        enc_attention_mask = list(map(lambda x: x[1], examples))
+        decoder_input = list(map(lambda x: x[2], examples))
+        boxes = list(map(lambda x: x[3], examples))  
+        misc = list(map(lambda x: x[4], examples))
+        nocoref = list(map(lambda x: x[5], examples))
+        disambiguation_labels = list(map(lambda x: x[6], examples))
+        response = list(map(lambda x: x[7], examples))
         if tokenizer._pad_token is None:
             enc_input_pad = pad_sequence(enc_input, batch_first=True)
-            decoder_labels_pad = pad_sequence(decoder_labels, batch_first=True)
-            response_input_pad = pad_sequence(response, batch_first=True)
         else:
             enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
-            decoder_labels_pad = pad_sequence(decoder_labels, batch_first=True, padding_value=-100)
-            response_input_pad = pad_sequence(response, batch_first=True, padding_value=tokenizer.pad_token_id)
-        return enc_input_pad, decoder_labels_pad, boxes, misc, nocoref, torch.vstack(disambiguation_labels), response_input_pad
+        enc_attention_pad = pad_sequence(enc_attention_mask, batch_first=True, padding_value=0)
+        decoder_input_pad = tokenizer(decoder_input, padding="longest", truncation=True, return_tensors="pt")
+        response_pad = tokenizer(response, padding="longest", truncation=True, return_tensors="pt")
+
+        return enc_input_pad, enc_attention_pad, decoder_input_pad.input_ids, decoder_input_pad.attention_mask, \
+                boxes, misc, nocoref, torch.vstack(disambiguation_labels), response_pad.input_ids, response_pad.attention_mask
     
     train_dataset = get_dataset(args, tokenizer, all_objects_meta, train=True)
     train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(
-        train_dataset,
-        sampler=train_sampler,
-        batch_size=args.train_batch_size,
-        collate_fn=collate_bart
-    )
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, collate_fn=collate_bart)
     t_total = len(train_dataloader) * args.num_train_epochs
-
-    model.resize_token_embeddings(len(tokenizer))
 
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
@@ -561,18 +556,9 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
-    if (
-        args.model_dir
-        and os.path.isfile(os.path.join(args.model_dir, "optimizer.pt"))
-        and os.path.isfile(os.path.join(args.model_dir, "scheduler.pt"))
-    ):
-        # Load in optimizer and scheduler states
-        optimizer.load_state_dict(
-            torch.load(os.path.join(args.model_dir, "optimizer.pt"))
-        )
-        scheduler.load_state_dict(
-            torch.load(os.path.join(args.model_dir, "scheduler.pt"))
-        )
+    if (args.model_dir and os.path.isfile(os.path.join(args.model_dir, "optimizer.pt")) and os.path.isfile(os.path.join(args.model_dir, "scheduler.pt"))):
+        optimizer.load_state_dict(torch.load(os.path.join(args.model_dir, "optimizer.pt")))
+        scheduler.load_state_dict(torch.load(os.path.join(args.model_dir, "scheduler.pt")))
 
     # Train!
     logger.info("***** Running training *****")
@@ -580,6 +566,9 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
     logger.info("  Num Epochs = %d", args.num_train_epochs)
     logger.info("  Train batch size = %d", args.train_batch_size)
     logger.info("  Total optimization steps = %d", t_total)
+
+    for net in [model, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head]:
+        net.train()
 
     global_step = 0
     epochs_trained = 0
@@ -622,12 +611,16 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
                 continue
 
             enc_input = batch[0].to(args.device)
-            decoder_labels = batch[1].to(args.device)
-            boxes = batch[2] # batch, num_obj_per_line, 6
-            misc = batch[3]  # batch, num_obj_per_line, dict
-            nocoref = batch[4]
-            disambiguation_labels = batch[5].to(args.device)
-            response = batch[6].to(args.device)
+            enc_attention_mask = batch[1].to(args.device)
+            decoder_input = batch[2].to(args.device)
+            decoder_attention_mask = batch[3].to(args.device)
+            boxes = batch[4] # batch, num_obj_per_line, 6
+            misc = batch[5]  # batch, num_obj_per_line, dict
+            nocoref = batch[6]
+            disambiguation_labels = batch[7].to(args.device)
+            response = batch[8].to(args.device)
+            response_attention_mask = batch[9].to(args.device)
+
             # follow `class BartEncoder`. shape of (batch, seqlen, d_model)
             inputs_embeds = model.model.encoder.embed_tokens(enc_input) * model.model.encoder.embed_scale
 
@@ -641,13 +634,16 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
                     pos = misc[b_idx][obj_idx]['pos']
                     inputs_embeds[b_idx][pos] += box_embedded[obj_idx]
             
-            model.train()
-            # box_embedding.train()
-            
-            model_outputs = model(inputs_embeds=inputs_embeds, labels=decoder_labels)
+            model_outputs = model(
+                inputs_embeds=inputs_embeds, 
+                attention_mask=enc_attention_mask, 
+                decoder_input_ids=decoder_input[:, :-1],
+                decoder_attention_mask=decoder_attention_mask[:, :-1],
+                labels=decoder_input[:, 1:].contiguous()
+                )
             model_loss = model_outputs.loss
             enc_last_state = model_outputs.encoder_last_hidden_state  # (bs, seqlen, d_model)
-            # ========================================================================================
+            
             # For Biencoder
             response_vec = model.model.encoder(response)[0][:, 0, :] # bs, dim
             context_vec = enc_last_state[:, 0, :] # bs, dim
@@ -658,7 +654,7 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
             # retrieval_loss = F.log_softmax(dot_product, dim=-1) * torch.eye(batch_size).to(context_vec.device)
             # retrieval_loss = (-retrieval_loss.sum(dim=1)).mean()
 
-            # =======================================================================================
+            # For Disambiguation
             disambiguation_logits = disambiguation_head(enc_last_state[:, 1, :]) # bs, d_model --> bs, 2
             disam_loss = CELoss(disambiguation_logits, disambiguation_labels.view(-1))
 
@@ -722,7 +718,7 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
                 misc_loss += loss_per_line
             misc_loss /= batch_size
 
-            (model_loss + 0.1*nocoref_loss + 0.1*misc_loss + 0.1*disam_loss + 0.3*retrieval_loss).backward()
+            (model_loss + 0.1*nocoref_loss + 0.1*misc_loss + 0.1*disam_loss + 0.4*retrieval_loss).backward()
             tr_loss += model_loss.item()
             parameters_to_clip = [p for p in model.parameters() if p.grad is not None] + \
                                  [p for p in box_embedding.parameters() if p.grad is not None] + \
@@ -730,6 +726,7 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
                                  [p for p in fashion_enc_head.parameters() if p.grad is not None] + \
                                  [p for p in furniture_enc_head.parameters() if p.grad is not None] + \
                                  [p for p in disambiguation_head.parameters() if p.grad is not None]
+            
             torch.nn.utils.clip_grad_norm_(parameters_to_clip, args.max_grad_norm)
             optimizer.step()
             scheduler.step()
@@ -744,13 +741,14 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
             if global_step % args.embedding_train_steps == 0:
                 train_embedding_clip_way(args, model, tokenizer, all_objects_meta, args.embedding_train_epochs_ongoing, do_tsne=False)
 
-            if global_step % args.eval_steps == 0:
+            if (global_step % args.eval_steps == 0) and (global_step > 20000):
                 results = evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head, all_objects_meta)
+                for net in [model, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head]:
+                    net.train()
 
-            if args.save_steps > 0 and global_step % args.save_steps == 0:
+            if args.save_steps > 0 and (global_step % args.save_steps == 0) and (global_step > 20000):
                 print('checkpoint saving!!')
                 checkpoint_prefix = "checkpoint"
-                # Save model checkpoint
                 output_dir = os.path.join(
                     args.output_dir, "{}-{}".format(checkpoint_prefix, global_step)
                 )
@@ -765,31 +763,28 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
                             'furniture_enc_head': furniture_enc_head.state_dict(),
                             'disambiguation_head': disambiguation_head.state_dict()},
                             os.path.join(output_dir, 'aux_nets.pt'))
-                # torch.save(
-                #     optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt")
-                # )
-                # torch.save(
-                #     scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt")
-                # )
 
     return global_step, tr_loss/global_step
 
 def evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head, all_objects_meta):
     
-    def collate_bart(examples):
+    def collate_eval_bart(examples):
         enc_input = list(map(lambda x: x[0], examples))
-        decoder_labels = list(map(lambda x: x[1], examples))
-        boxes = list(map(lambda x: x[2], examples))  
-        misc = list(map(lambda x: x[3], examples))
-        nocoref = list(map(lambda x: x[4], examples))
+        enc_attention_mask = list(map(lambda x: x[1], examples))
+        decoder_input = list(map(lambda x: x[2], examples))
+        boxes = list(map(lambda x: x[3], examples))  
+        misc = list(map(lambda x: x[4], examples))
+        nocoref = list(map(lambda x: x[5], examples))
         if tokenizer._pad_token is None:
             enc_input_pad = pad_sequence(enc_input, batch_first=True)
-            decoder_labels_pad = pad_sequence(decoder_labels, batch_first=True)
         else:
             enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
-            decoder_labels_pad = pad_sequence(decoder_labels, batch_first=True, padding_value=-100)
-        return enc_input_pad, decoder_labels_pad, boxes, misc, nocoref
+        enc_attention_pad = pad_sequence(enc_attention_mask, batch_first=True, padding_value=0)
+        decoder_input_pad = tokenizer(decoder_input, padding="longest", truncation=True, return_tensors="pt")
 
+        return enc_input_pad, enc_attention_pad, decoder_input_pad.input_ids, decoder_input_pad.attention_mask, \
+                boxes, misc, nocoref
+    
     def add_dicts(d1, d2):
         return {k: d1[k] + d2[k] for k in d1}
 
@@ -801,18 +796,15 @@ def evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_he
 
     eval_dataset = get_dataset(args, tokenizer, all_objects_meta, train=False)
     eval_sampler = SequentialSampler(eval_dataset)
-    eval_dataloader = DataLoader(
-        eval_dataset,
-        sampler=eval_sampler,
-        batch_size=args.eval_batch_size,
-        collate_fn=collate_bart
-    )
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, collate_fn=collate_eval_bart)
+    
     # Eval!
+    for net in [model, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head]:
+        net.eval()
     logger.info("***** Running evaluation *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     model.eval()
-    box_embedding.eval()
     eval_loss = 0.0
     nb_eval_steps = 0
 
@@ -831,10 +823,12 @@ def evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_he
     num_furnitures = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         enc_input = batch[0].to(args.device)
-        decoder_labels = batch[1].to(args.device)
-        boxes = batch[2] # batch, num_obj_per_line, 6
-        misc = batch[3]  # batch, num_obj_per_line, dict
-        nocoref = batch[4]
+        enc_attention_mask = batch[1].to(args.device)
+        decoder_input = batch[2].to(args.device)
+        decoder_attention_mask = batch[3].to(args.device)
+        boxes = batch[4] # batch, num_obj_per_line, 6
+        misc = batch[5]  # batch, num_obj_per_line, dict
+        nocoref = batch[6]
         with torch.no_grad():
             inputs_embeds = model.model.encoder.embed_tokens(enc_input) * model.model.encoder.embed_scale
             batch_size = len(misc)
@@ -843,7 +837,13 @@ def evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_he
                 for obj_idx in range(len(misc[b_idx])):
                     pos = misc[b_idx][obj_idx]['pos']
                     inputs_embeds[b_idx][pos] += box_embedded[obj_idx]
-            model_outputs = model(inputs_embeds=inputs_embeds, labels=decoder_labels)
+            model_outputs = model(
+                inputs_embeds=inputs_embeds, 
+                attention_mask=enc_attention_mask, 
+                decoder_input_ids=decoder_input[:, :-1],
+                decoder_attention_mask=decoder_attention_mask[:, :-1],
+                labels=decoder_input[:, 1:].contiguous()
+                )
         model_loss = model_outputs.loss
         enc_last_state = model_outputs.encoder_last_hidden_state  # (bs, seqlen, d_model)
 
@@ -884,10 +884,6 @@ def evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_he
                 coref, size, available_sizes, brand, color, pattern, sleeve_length, \
                 asset_type, type_, price, customer_review = fashion_enc_head(hidden_concat)  # (num_obj, num_logits)
                 
-                # print('n_pred_objects', coref.argmax(dim=1))
-                # print('coref_label', coref_label)
-                # print('n_true_objects', n_true_objects)
-                # print(torch.logical_and(coref.argmax(dim=1), coref_label).int().sum().item())
                 n_pred_objects += coref.argmax(dim=1).sum().item()
                 n_correct_objects += torch.logical_and(coref.argmax(dim=1), coref_label).int().sum().item()
                 batch_report['fashion_coref'] += torch.all(coref.argmax(dim=1) == coref_label, dim=0).float()  # 1. or 0.
@@ -1090,10 +1086,12 @@ def main():
         num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
         logger.info(f"Added {num_added_toks} tokens")
     
+    # Define Model
     model = BartForConditionalGeneration.from_pretrained('facebook/bart-large')
     if args.add_special_tokens:
         model.resize_token_embeddings(len(tokenizer))
         model.vocab_size = len(tokenizer)
+    model.config.decoder_start_token_id = 0
     model.to(args.device)
 
     box_embedding = BoxEmbedding(model.config.d_model).to(args.device)
@@ -1101,6 +1099,7 @@ def main():
     fashion_enc_head = FashionEncoderHead(model.config.d_model).to(args.device)
     furniture_enc_head = FurnitureEncoderHead(model.config.d_model).to(args.device)
     disambiguation_head = DisambiguationHead(model.config.d_model).to(args.device)
+    
     with open(args.item2id, 'r') as f:
         item2id = json.load(f)
     

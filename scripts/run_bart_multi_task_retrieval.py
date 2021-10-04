@@ -199,8 +199,9 @@ class RetrievalDataset(Dataset):
         asset = self.candidates_file[i]
         diag_index = asset["dialog_id"]
         turn_id = asset["turn_id"]
-        candidates = self.tokenizer(asset["candidates"], padding="longest", add_special_tokens=True, truncation=True, return_tensors="pt")
-        return torch.tensor(self.examples[i], dtype=torch.long), self.original_lines[i], self.boxes[i], self.misc[i], self.nocoref[i], candidates, diag_index, turn_id
+        candidate = self.tokenizer(asset["candidates"], padding="longest", truncation=True, return_tensors="pt")
+        return torch.tensor(self.examples[i], dtype=torch.long), self.original_lines[i], self.boxes[i], self.misc[i], self.nocoref[i], \
+                candidate.input_ids, candidate.attention_mask, diag_index, turn_id
 
 
 def main():
@@ -290,14 +291,20 @@ def main():
         boxes = list(map(lambda x: x[2], examples))
         misc = list(map(lambda x: x[3], examples))
         nocoref = list(map(lambda x: x[4], examples))
-        candidate = list(map(lambda x: x[5], examples))
-        dialog_id = list(map(lambda x: x[6], examples))
-        turn_id = list(map(lambda x: x[7], examples))
+        candidate = list(map(lambda x: x[5], examples)) #List[List(100, seq_len)]
+        candidate_attention_mask = list(map(lambda x: x[6], examples)) #List[List(100, seq_len)]
+        dialog_id = list(map(lambda x: x[7], examples))
+        turn_id = list(map(lambda x: x[8], examples))
+        
+        candidate_buffer = []
+        for candi in candidate:
+            candidate_buffer.extend(candi)
+        
         if tokenizer._pad_token is None:
             enc_input_pad = pad_sequence(enc_input, batch_first=True)
         else:
             enc_input_pad = pad_sequence(enc_input, batch_first=True, padding_value=tokenizer.pad_token_id)
-        return enc_input_pad, original_lines, boxes, misc, nocoref, candidate, dialog_id, turn_id
+        return enc_input_pad, original_lines, boxes, misc, nocoref, candidate, candidate_attention_mask, dialog_id, turn_id
     
     decode_dataset = RetrievalDataset(args.prompts_from_file, args.candidate_file, tokenizer)
     decode_sampler = SequentialSampler(decode_dataset)
@@ -313,15 +320,16 @@ def main():
     tokenizer_id2token = {v: k for k, v in tokenizer.get_vocab().items()}
     results = []
     n_prompts = len(decode_dataset)
-    for i, batch in enumerate(tqdm(decode_dataloader, desc='Decoding')):  # should be 1-batchsized batch
+    for i, batch in enumerate(tqdm(decode_dataloader, desc='Retrieval...')): 
         enc_input = batch[0].to(args.device)
         original_lines = batch[1]
         boxes = batch[2] # batch, num_obj_per_line, 6
         misc = batch[3]  # batch, num_obj_per_line, dict
         nocoref = batch[4]
-        candidate = batch[5][0].input_ids.to(args.device) # bs(100), seq_len 
-        dialog_id = batch[6]
-        turn_id = batch[7]
+        candidate = batch[5][0].to(args.device) # bs(100), seq_len 
+        candidate_attention_mask = batch[6][0].to(args.device) # bs(100), seq_len 
+        dialog_id = batch[7]
+        turn_id = batch[8]
         batch_size = len(misc)
 
         assert batch_size == 1, "batch_size is not 1 !!"
@@ -333,16 +341,13 @@ def main():
                     pos = misc[b_idx][obj_idx]['pos']
                     inputs_embeds[b_idx][pos] += box_embedded[obj_idx]
             encoder_outputs = model.model.encoder(inputs_embeds=inputs_embeds, return_dict=True)
-
             context_vec = encoder_outputs[0][:, 0, :] # bs, dim
-            # if condidate.size (bs, condidate_num)
-            response_vec = model.model.encoder(candidate)[0][:, 0, :] # bs, dim
-            dot_product = torch.matmul(response_vec, context_vec.T).squeeze() # bs
+            
+            response_vec = model.model.encoder(input_ids=candidate, attention_mask=candidate_attention_mask)[0][:, 0, :] # num_candi, dim
+            # (num_candi, dim) @ (dim, 1) --> (num_candi, 1)
+            dot_product = torch.matmul(response_vec, context_vec.T).squeeze()
             scores = torch.softmax(dot_product, dim=-1)
             assert scores.size(0) == 100
-
-
-
             results.append({
                 "dialog_id" : dialog_id[0],
                 "candidate_scores" : [
@@ -352,7 +357,6 @@ def main():
                     }
                 ]
             })
-
 
     json.dump(results, open(args.path_output, "w"), indent=4)    
     return
