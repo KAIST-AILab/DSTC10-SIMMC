@@ -66,58 +66,6 @@ def id_converter(tokenizer):
     id2furniture_st = {get_input_id(tokenizer, st)[0]: st for st in FURNITURE_SPECIAL_TOKENS}
     return id2index, id2fashion_st, id2furniture_st
 
-def correct_action(text, correction_dict):
-    for k, v in correction_dict.items():
-        text = text.replace(k, v)
-    return text
-
-def correct_available_sizes(text):
-    try:
-        if 'availableSizes =' in text:
-            available_sizes_str_list = [(m.start(0), m.end(0)) for m in re.finditer(r"availableSizes =", text)]
-            if not available_sizes_str_list:  # empty available_sizes_str_list: in case of (availableSizes)
-                return text
-            availableSizes_idx = available_sizes_str_list[0][1]
-            start_bracket_idx = -1
-            end_bracket_idx = -1
-            for i in range(70):
-                if text[availableSizes_idx+i] == '[':
-                    start_bracket_idx = availableSizes_idx+i
-                if text[availableSizes_idx+i] == ']':
-                    end_bracket_idx = availableSizes_idx+i
-                if start_bracket_idx != -1 and end_bracket_idx != -1:
-                    break
-            assert start_bracket_idx != -1 and end_bracket_idx != -1, f"ERROR AT def correct_available_sizes!!\n{text}"
-            list_str = text[start_bracket_idx:end_bracket_idx].replace("'", "")
-            list_str = str([element for element in re.findall(r"[A-Z]+", list_str)])
-            return text[:start_bracket_idx] + list_str + text[end_bracket_idx:]
-        else:
-            return text
-    except:
-        print('text:', text)
-
-def remove_bos_eos_startequal(text):
-    text = text.replace('</s>', '').replace('<s>', '').replace('=====', '')
-    return text
-
-def replace_special_chars(text):
-    def rep(match_re_obj):
-        return match_re_obj.group(0).replace('<','').replace('>','')
-    text = re.sub("<[0-9]+>", rep, text)
-    available_sizes_st_list = [('<A>', 'XS'), ('<B>', 'S'), ('<C>', 'M'), ('<D>', 'L'), ('<E>', 'XL'), ('<F>', 'XXL')]
-    for size_tuple in available_sizes_st_list:
-        text.replace(size_tuple[0], size_tuple[1])
-    return text
-
-
-def insert_coref(text, coref_chars: list):
-    """ coref_chars: [<11>, <44>, ...] """
-    coref_pos_start, coref_pos_end = [(m.start(0), m.end(0)) for m in re.finditer(r"\) *<EOB>", text)][0]
-    coref_list = [int(coref.replace('<', '').replace('>', '')) for coref in coref_chars]
-    coref_str = str(coref_list).replace('[', '< ').replace(']',' >') if coref_list else '<  >'
-    return text[:coref_pos_start+1] + ' ' + coref_str + ' <EOB>' + text[coref_pos_end:]
-
-
 def adjust_length_to_model(length, max_sequence_length):
     if length < 0 and max_sequence_length > 0:
         length = max_sequence_length
@@ -130,7 +78,6 @@ def adjust_length_to_model(length, max_sequence_length):
 
 class DisambiguationDataset(Dataset):
     def __init__(self, prompts_from_file, disambiguation_file, tokenizer):
-
 
         self.tokenizer = tokenizer
         lines = []
@@ -184,7 +131,7 @@ class DisambiguationDataset(Dataset):
                 for i, token_id in enumerate(tl):
                     if token_id in id2index and i > EOM_last_idx:  # this token is for item index
                         temp = dict()
-                        pos = i; item_index = id2index[token_id]; fashion_st = id2fashion_st[tl[i+1]]
+                        pos = i
                         temp['is_fashion'] = True
                         temp['pos'] = pos
                         
@@ -193,7 +140,7 @@ class DisambiguationDataset(Dataset):
                 for i, token_id in enumerate(tl):
                     if token_id in id2index and i > EOM_last_idx:  # this token is for item index
                         temp = dict()
-                        pos = i; item_index = id2index[token_id]; furniture_st = id2furniture_st[tl[i+1]]
+                        pos = i
                         temp['is_fashion'] = False
                         temp['pos'] = pos
                         line_labels.append(temp)

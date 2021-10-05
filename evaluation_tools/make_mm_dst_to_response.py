@@ -39,6 +39,7 @@ if __name__=="__main__":
     
     with open(input_path_text, 'r') as f:
         lines = f.readlines()
+        assert len(lines) == len(dialog_meta_data)
         for line, meta in zip(lines, dialog_meta_data):
             response = line.split("<EOB>")[1].split("<EOS>")[0].strip()
             results.append({

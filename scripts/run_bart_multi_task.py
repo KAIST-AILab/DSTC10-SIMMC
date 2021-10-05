@@ -645,14 +645,10 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
             enc_last_state = model_outputs.encoder_last_hidden_state  # (bs, seqlen, d_model)
             
             # For Biencoder
-            response_vec = model.model.encoder(response)[0][:, 0, :] # bs, dim
+            response_vec = model.model.encoder(input_ids=response, attention_mask=response_attention_mask)[0][:, 0, :] # bs, dim
             context_vec = enc_last_state[:, 0, :] # bs, dim
             dot_product = torch.matmul(context_vec, response_vec.t())  # bs, bs
-            # case 1) Cross Entropy
             retrieval_loss = CELoss(dot_product, torch.arange(batch_size).to(context_vec.device))
-            # case 2) https://github.com/i2r-simmc/i2r-simmc-2020/blob/a889da823631a2e16f536fd0d09385b4e338c882/src/retrieval/encoder.py
-            # retrieval_loss = F.log_softmax(dot_product, dim=-1) * torch.eye(batch_size).to(context_vec.device)
-            # retrieval_loss = (-retrieval_loss.sum(dim=1)).mean()
 
             # For Disambiguation
             disambiguation_logits = disambiguation_head(enc_last_state[:, 1, :]) # bs, d_model --> bs, 2
@@ -741,12 +737,12 @@ def train(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head,
             if global_step % args.embedding_train_steps == 0:
                 train_embedding_clip_way(args, model, tokenizer, all_objects_meta, args.embedding_train_epochs_ongoing, do_tsne=False)
 
-            if (global_step % args.eval_steps == 0) and (global_step > 20000):
+            if (global_step % args.eval_steps == 0) and (global_step > 15000):
                 results = evaluate(args, model, tokenizer, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head, all_objects_meta)
                 for net in [model, box_embedding, nocoref_head, fashion_enc_head, furniture_enc_head, disambiguation_head]:
                     net.train()
 
-            if args.save_steps > 0 and (global_step % args.save_steps == 0) and (global_step > 20000):
+            if args.save_steps > 0 and (global_step % args.save_steps == 0) and (global_step > 15000):
                 print('checkpoint saving!!')
                 checkpoint_prefix = "checkpoint"
                 output_dir = os.path.join(

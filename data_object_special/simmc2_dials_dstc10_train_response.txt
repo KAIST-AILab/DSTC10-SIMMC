@@ -1,4 +1,4 @@
-System : I do, over at the back right there are a couple of black ones hanging on the wall in the bottom row.  There's also a brown jacket hanging up high to the right. <EOS>
+System : I do, over at the back right there are a couple of black ones hanging on the wall in the bottom row. There's also a brown jacket hanging up high to the right. <EOS>
 System : Yes, the brown one costs $199.99 and the black one costs $44.99. <EOS>
 System : There's one more, it's brown and at the top left of the back wall. <EOS>
 System : The black one in the middle of the bottom row is cheap. <EOS>

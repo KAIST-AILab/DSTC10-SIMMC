@@ -58,6 +58,7 @@ def correct_action(text, correction_dict):
     return text
 
 def correct_available_sizes(text):
+    SIZES =['<A>', '<B>', '<C>', '<D>', '<E>', '<F>']
     try:
         if 'availableSizes =' in text:
             available_sizes_str_list = [(m.start(0), m.end(0)) for m in re.finditer(r"availableSizes =", text)]
@@ -75,8 +76,12 @@ def correct_available_sizes(text):
                     break
             assert start_bracket_idx != -1 and end_bracket_idx != -1, f"ERROR AT def correct_available_sizes!!\n{text}"
             list_str = text[start_bracket_idx:end_bracket_idx].replace("'", "")
-            list_str = str([element for element in re.findall(r"[A-Z]+", list_str)])
-            return text[:start_bracket_idx] + list_str + text[end_bracket_idx:]
+            new_list = []
+            for size in SIZES:
+                if size in list_str:
+                    new_list.append(size)
+            new = ", ".join(new_list)
+            return text[:start_bracket_idx] + '['+new + text[end_bracket_idx:]
         else:
             return text
     except:
@@ -172,7 +177,7 @@ class GenerationDataset(Dataset):
                 for i, token_id in enumerate(tl):
                     if token_id in id2index and i > EOM_last_idx:  # this token is for item index
                         temp = dict()
-                        pos = i; item_index = id2index[token_id]; fashion_st = id2fashion_st[tl[i+1]]
+                        pos = i
                         temp['is_fashion'] = True
                         temp['pos'] = pos
                         
@@ -181,7 +186,7 @@ class GenerationDataset(Dataset):
                 for i, token_id in enumerate(tl):
                     if token_id in id2index and i > EOM_last_idx:  # this token is for item index
                         temp = dict()
-                        pos = i; item_index = id2index[token_id]; furniture_st = id2furniture_st[tl[i+1]]
+                        pos = i
                         temp['is_fashion'] = False
                         temp['pos'] = pos
                         line_labels.append(temp)
@@ -418,7 +423,7 @@ def main():
                 print("Before replace : " + text.split("</s>")[0].strip())
             
             text = remove_bos_eos_startequal(text)
-            # text = correct_available_sizes(text)
+            text = correct_available_sizes(text)
             text_coref_replaced = copy.deepcopy(text)
             total_sequence = replace_special_chars(original_lines[sequence_idx] + text_coref_replaced)
             total_sequence_coref_replaced = insert_coref(total_sequence, coref_obj_list[sequence_idx])
@@ -429,10 +434,9 @@ def main():
 
         results_coref_replaced.extend(generated_sequences_coref_replaced)
     with open(args.path_output, "w") as f_out:
-        for line in results_coref_replaced:
-            f_out.write(line+"\n")
+        f_out.write("\n".join(results_coref_replaced))
     
-    return results_coref_replaced
+    return 
 
 if __name__ == "__main__":
     main()

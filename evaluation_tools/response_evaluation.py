@@ -83,7 +83,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Response Generation Evaluation")
     parser.add_argument(
         "--data_json_path",
-        default="data/furniture_train.json",
+        default="../data/simmc2_dials_dstc10_devtest.json",
         help="Data with gold responses",
     )
     parser.add_argument(
