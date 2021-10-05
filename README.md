@@ -60,7 +60,7 @@ python run_bart_multi_task.py \
 --output_eval_file=../multi_task/model/report.txt \
 --num_train_epochs=10  \
 --eval_steps=3000  \
---warmup_steps=10000 
+--warmup_steps=8000 
 ```
 ## **Evaluation**
 All tasks can be evaluated with the same model parameters.
