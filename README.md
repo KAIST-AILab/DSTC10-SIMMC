@@ -130,7 +130,7 @@ or
 
 ```shell
 python run_bart_multi_task_disambiguation.py \
-  --path_output=../results/dstc10-simmc-devtest-pred-subtask-1.json \
+  --path_output=../devtest_results/dstc10-simmc-devtest-pred-subtask-1.json \
   --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
   --disambiguation_file=../data_object_special/simmc2_dials_dstc10_devtest_inference_disambiguation.json \
   --item2id item2id.json \
@@ -148,7 +148,7 @@ or
 ```shell
 python run_bart_multi_task_mm_dst.py \
   --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
-  --path_output=../results/dstc10-simmc-devtest-pred-subtask-3.txt \
+  --path_output=../devtest_results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --item2id=item2id.json \
   --add_special_tokens=../data_object_special/simmc_special_tokens.json \
   --model_dir=<YOUR MODEL CHECKPOINTS>
@@ -157,9 +157,9 @@ This script creates a line-by-line *.txt prediction. To parse the line-by-line r
 
 ```shell
 python convert_mm_dst_to_response.py \
-  --input_path_text=../results/mm_dst_result.txt \
+  --input_path_text=../devtest_results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --dialog_meta_data=../data_object_special/simmc2_dials_dstc10_devtest_inference_disambiguation.json \
-  --output_path_json=../results/dstc10-simmc-devtest-pred-subtask-4-generation.json
+  --output_path_json=../devtest_results/dstc10-simmc-devtest-pred-subtask-4-generation.json
 ```
 
 ### **(Subtask 4-b) Response Retrieval**
@@ -169,7 +169,7 @@ bash run_bart_multi_task_retrieval.sh
 or
 ```shell
 python run_bart_multi_task_retrieval.py \
-  --path_output=../results/dstc10-simmc-devtest-pred-subtask-4-retrieval.json \
+  --path_output=../devtest_results/dstc10-simmc-devtest-pred-subtask-4-retrieval.json \
   --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
   --candidate_file=../data_object_special/simmc2_dials_dstc10_devtest_retrieval.json \
   --item2id item2id.json \
