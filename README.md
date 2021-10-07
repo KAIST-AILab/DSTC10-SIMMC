@@ -157,7 +157,7 @@ This script creates a line-by-line *.txt prediction. To parse the line-by-line r
 
 ```shell
 python convert_mm_dst_to_response.py \
-  --input_path_test=../results/mm_dst_result.txt \
+  --input_path_text=../results/mm_dst_result.txt \
   --dialog_meta_data=../data_object_special/simmc2_dials_dstc10_devtest_inference_disambiguation.json \
   --output_path_json=../results/dstc10-simmc-devtest-pred-subtask-4-generation.json
 ```
