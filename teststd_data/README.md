@@ -54,6 +54,7 @@ python convert.py \
 All tasks can be evaluated with the same model parameters.
 
 **1. Disambiguation Task**
+
 Move to the directory `scripts`.
 
 ```shell
@@ -69,6 +70,7 @@ python run_bart_multi_task_disambiguation.py \
 Disambiguation file, `teststd_disambiguation_for_inference.json` containes just the information about dialogue index and the turn number.
 
 **2. MM_DST & Response Generation Task** 
+
 Move to the directory `scripts`.
 
 ```shell
@@ -92,6 +94,7 @@ To make the generation-task result file from `dstc10-simmc-teststd-pred-subtask-
 ```
 
 **3. Retrieval Task**
+Move to the directory `scripts`.
 
 ```shell
 python run_bart_multi_task_retrieval.py \
