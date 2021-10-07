@@ -34,12 +34,12 @@ Download the model parameters from drive link below:
 
 * Google Drive [link](https://drive.google.com/drive/u/0/folders/1P_FTLrxp84gVrUI7HG7d-HttnRh8H9xM)
 
-## **Data Preprocessing **
+## **Data Preprocessing**
 For our model input, preprocess the datasets to reformat the data. 
 
-Make sure to download simmc2-data into ./data before launching the code .
+Make sure to download simmc2-data into `./data` before launching the code .
 
-1. Move into 'scripts', run the following command.
+1. Move into `scripts`, run the following command.
 ```shell
 python convert.py \
 --input_path_json=<YOUR INPUT PATH JSON> \
@@ -71,14 +71,15 @@ python convert.py \
 --with_target=0
 ```
 Since our model is multi-task trained, the additional target files are needed.
-e.g simmc2_dials_dstc10_train_disambiguation_label.txt, simmc2_dials_dstc10_train_response.txt for disambiguation-task and retrieval-task, respectively.
 
-These are alreadey uploaded in the directory 'data_object_special' 
+e.g `simmc2_dials_dstc10_train_disambiguation_label.txt`, `simmc2_dials_dstc10_train_response.txt` for disambiguation-task and retrieval-task, respectively.
+
+These are alreadey uploaded in the directory 'data_object_special'.
 
 ## **Train Model**
 Our model is jointly trained with losses from each tasks based on BART.
 
-Make sure to download simmc2-data into ./data before training. 
+Make sure to download simmc2-data into `./data` before training. 
 1. Move into `scripts`, Run training.
 
 ```shell
@@ -122,7 +123,7 @@ python run_bart_multi_task_disambiguation.py \
  --model_dir=<YOUR MODEL CHECKPOINTS> 
 ```
 
-Disambiguation file, 'simmc2_dials_dstc10_devtest_inference_disambiguation.json' containes just the information about dialogue index and the turn number.
+Disambiguation file, `simmc2_dials_dstc10_devtest_inference_disambiguation.json` containes just the information about dialogue index and the turn number.
  
 **2. MM_DST & Response Generation Task** 
 
@@ -139,7 +140,7 @@ or
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
  
- This script makes the line-by-line *.txt result. To make from line-by-line *.txt to *.json, move into 'processing_data'.
+ This script makes the line-by-line *.txt result. To make from line-by-line *.txt to *.json, move into `processing_data`.
  
  ```shell
  python convert_line_to_json_for_mm_dst.py \
@@ -170,7 +171,7 @@ python run_bart_multi_task_retrieval.py \
 --batch_size=24 \
 --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
-Candidate file, 'simmc2_dials_dstc10_devtest_retrieval.json.json' contains the reformatted canndidates, dialogue index and the turn number.
+Candidate file, `simmc2_dials_dstc10_devtest_retrieval.json.json` contains the reformatted canndidates, dialogue index and the turn number.
 
 ## References
 ```
