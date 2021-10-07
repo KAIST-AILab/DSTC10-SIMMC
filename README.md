@@ -153,7 +153,7 @@ python run_bart_multi_task_mm_dst.py \
   --add_special_tokens=../data_object_special/simmc_special_tokens.json \
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
-This script creates a line-by-line *.txt prediction. To parse the line-by-line results `dstc10-simmc-devtest-pred-subtask-3.txt` into json format, use the following command in the directory `preprocessing_data`. 
+This script creates a line-by-line *.txt prediction. To parse the line-by-line results `dstc10-simmc-devtest-pred-subtask-3.txt` into *subtask-4-generation.json format, use the following command in the directory `preprocessing_data`. 
 
 ```shell
 python convert_mm_dst_to_response.py \
