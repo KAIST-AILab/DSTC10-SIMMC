@@ -41,16 +41,9 @@ END_OF_SENTENCE = "<EOS>"
 START_OF_OBJ_TOKEN = "<SOO>"
 END_OF_OBJ_TOKEN = "<EOO>"
 OBJ_START = "<OBJ>"
-OBJ_END = "</OBJ>"
+OBJ_PREVI = "<PREVIOBJ>"
 DET_START = "<DET>"
 NO_COREF = "<NOCOREF>"
-START_OF_DETECTION = "<SOD>"
-END_OF_DETECTION = "<EOD>"
-START_OF_DISAMBIGUATION = "<SODIS>"
-END_OF_DISAMBIGUATION = "<EODIS>"
-
-USER = "<USER>"
-SYSTEM = "<SYS>"
 
 available_sizes2st = {
     'XS': '<A>',
@@ -59,17 +52,6 @@ available_sizes2st = {
     'L': '<D>',
     'XL': '<E>',
     'XXL': '<F>' 
-}
-
-ACTS = {
-    'REQUEST:ADD_TO_CART': "<REQUEST:ADD_TO_CART>", 
-    'REQUEST:COMPARE': "<REQUEST:COMPARE>",
-    'INFORM:DISAMBIGUATE': "<INFORM:DISAMBIGUATE>",
-    'ASK:GET': "<ASK:GET>",
-    'INFORM:GET': "<INFORM:GET>",
-    'REQUEST:GET': "<REQUEST:GET>",
-    "INFORM:REFINE": "<INFORM:REFINE>",
-    'CONFIRM:ADD_TO_CART': '<CONFIRM:ADD_TO_CART>'
 }
 
 # If we use each object token as special token
@@ -96,38 +78,6 @@ TEMPLATE_TARGET_NOBELIEF = "{context} {START_OF_RESPONSE} {response} {END_OF_SEN
 
 
 prompt_api = api.PromptAPI()
-
-
-def _build_special_tokens(use_multimodal_contexts=True,
-                          use_belief_states=True,
-                          use_object_special_token=True):
-    special_tokens = {"eos_token": END_OF_SENTENCE}
-    additional_special_tokens = []
-    additional_special_tokens.extend(list(ACTS.values()))
-    if use_belief_states:
-        additional_special_tokens.append(END_OF_BELIEF)
-    else:
-        additional_special_tokens.append(START_OF_RESPONSE)
-    if use_multimodal_contexts:
-        additional_special_tokens.append(START_OF_MULTIMODAL_CONTEXTS)
-        additional_special_tokens.append(END_OF_MULTIMODAL_CONTEXTS)
-    if use_object_special_token:
-        object_special_tokens = [START_OF_DISAMBIGUATION, END_OF_DISAMBIGUATION, START_OF_DETECTION, END_OF_DETECTION, 'shelf', USER, SYSTEM, f"<@0000>", START_OF_OBJ_TOKEN, END_OF_OBJ_TOKEN, OBJ_START, OBJ_END, DET_START, NO_COREF]  # <@0000> means no object
-        for i in range(MAX_NUM_OBJ_IN_SCENE):
-            object_special_tokens.append(f"<{i}>")
-        for i in range(NUM_FASHION_ITEMS):
-            object_special_tokens.append(f"<@1{i:03}>")
-        for i in range(NUM_FURNITURE_ITEMS):
-            object_special_tokens.append(f"<@2{i:03}>")
-        additional_special_tokens.extend(object_special_tokens)
-    # delexicalization
-    additional_special_tokens.extend(list(FASHION_BRAND) + list(FASHION_PRICE) + 
-    list(FASHION_SIZES) + list(FASHION_AVAILABLE_SIZES) + list(FASHION_CUSTOMER_REVIEW) 
-    + list(FURNITURE_BRAND) + list(FURNITURE_PRICE) + list(FURNITURE_CUSTOMER_RATING))
-    special_tokens["additional_special_tokens"] = additional_special_tokens
-    return special_tokens
-
-
 def represent_visual_objects(object_ids):
     # Stringify visual objects (JSON)
     str_objects = ", ".join([str(o) for o in object_ids])
@@ -173,6 +123,8 @@ def arrange_object_special_tokens(scene_json_folder, image_folder, scene_ids, ob
         scene_loaded_list.append(scene)
         for obj in scene['scenes'][0]['objects']: 
             obj_dict_possibly_duplicated[obj['index']] = scene_id_idx
+    
+    num_scene = len(scene_ids)
     for scene_id_idx, scene_id in enumerate(scene_ids):
         scene = scene_loaded_list[scene_id_idx]
         bbox_id = scene_id[2:] if scene_id.startswith('m_') else scene_id 
@@ -217,7 +169,10 @@ def arrange_object_special_tokens(scene_json_folder, image_folder, scene_ids, ob
                 else:
                     pos_str = ''
 
-                arrange_list.append(OBJ_START + "<" + str(obj['index']) + ">" + pos_str + object_item2id[obj['prefab_path']])
+                if (num_scene != 1) and (scene_id_idx == 0): 
+                    arrange_list.append(OBJ_PREVI + "<" + str(obj['index']) + ">" + pos_str + object_item2id[obj['prefab_path']])
+                else: 
+                    arrange_list.append(OBJ_START + "<" + str(obj['index']) + ">" + pos_str + object_item2id[obj['prefab_path']])
     return ''.join(arrange_list)
 
 
@@ -249,7 +204,6 @@ def format_dialog(dialog,
                   image_folder='',
                   insert_bbox_coords=True,
                   revert=False,
-                  replace_acts=False,
                   with_target=True):
     scene_ids = dialog["scene_ids"]
     dialog_idx = dialog['dialogue_idx']
@@ -267,7 +221,7 @@ def format_dialog(dialog,
         if "system_transcript" in turn:
             asst_uttr = turn[FIELDNAME_ASST_UTTR].replace("\n", " ").strip()
         else:
-            print(f"Diag ID : {dialog_idx}, turn_id :{turn_idx}")
+            # print(f"Diag ID : {dialog_idx}, turn_id :{turn_idx}")
             asst_uttr = ''
         
         this_turn_scene_id = get_scene_id(scene_ids, turn_idx)
@@ -303,10 +257,7 @@ def format_dialog(dialog,
             if with_target:
                 if object_item2id is not None:
                     belief_state = []
-                    if replace_acts:
-                        act = '<' + user_belief["act"].strip() + '>'
-                    else:
-                        act = user_belief["act"].strip()
+                    act = user_belief["act"].strip()
                     slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}" if k!='availableSizes' else '{} = {}'.format(k.strip(), str([available_sizes2st[x] for x in v]).replace("'", "").strip()) 
                     # slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}" if k!='availableSizes' else f'{k.strip()} = {str([available_sizes2st[x] for x in v]).replace("\'", "").strip()}'
                                             for k, v in user_belief["act_attributes"]
@@ -320,10 +271,7 @@ def format_dialog(dialog,
                     belief_state.append(str_belief_state_per_frame)
                 else:
                     belief_state = []
-                    if replace_acts:
-                        act = '<' + user_belief["act"].strip() + '>'
-                    else:
-                        act = user_belief["act"].strip()
+                    act = user_belief["act"].strip()
                     slot_values = ", ".join(f"{k.strip()} = {str(v).strip()}"
                                             for k, v in user_belief["act_attributes"]
                                             ["slot_values"].items())
@@ -399,7 +347,6 @@ def convert_json_to_flattened(
     image_folder='',
     insert_bbox_coords=True,
     revert=False,
-    replace_acts=False,
     with_target=True
 ):
     """
@@ -425,22 +372,16 @@ def convert_json_to_flattened(
                          image_folder=image_folder,
                          insert_bbox_coords=insert_bbox_coords,
                          revert=revert,
-                         replace_acts=replace_acts,
                          with_target=with_target)
     predicts, targets = zip(*chain.from_iterable(map(_formatter, data)))
-
-    # directory = os.path.dirname(output_path_predict)
-    # os.makedirs(directory, exist_ok=True)
-
-    # directory = os.path.dirname(output_path_target)
-    # os.makedirs(directory, exist_ok=True)
 
     # Output into text files
     with open(output_path_predict, "w") as f_predict:
         f_predict.write("\n".join(predicts))
 
-    with open(output_path_target, "w") as f_target:
-        f_target.write("\n".join(targets))
+    if with_target:
+        with open(output_path_target, "w") as f_target:
+            f_target.write("\n".join(targets))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -455,17 +396,9 @@ if __name__ == '__main__':
     parser.add_argument('--image_folder', type=str)
     parser.add_argument('--insert_bbox_coords', type=int, default=1)
     parser.add_argument('--revert', type=int, default=0)
-    parser.add_argument('--replace_acts', type=int, default=1)
     parser.add_argument('--with_target', type=int, default=1)
-    # parser.add_argument('--img_size_picklefile', type=str, default='')
-    # parser.add_argument('--det_info_picklefile', type=str, default='')
     args = parser.parse_args()
     
-
-    # if args.insert_bbox_coords:
-    #     with open(args.img_size_picklefile, 'rb') as f:
-    #         img_size = pickle.load(f)
-
     convert_json_to_flattened(
         args.input_path_json,
         args.output_path_predict,
@@ -478,5 +411,4 @@ if __name__ == '__main__':
         image_folder=args.image_folder,
         insert_bbox_coords=args.insert_bbox_coords,
         revert=args.revert,
-        replace_acts=args.replace_acts,
         with_target=args.with_target)

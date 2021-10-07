@@ -34,6 +34,42 @@ Download the model parameters from drive link below:
 
 * Google Drive [link](https://drive.google.com/drive/u/0/folders/1P_FTLrxp84gVrUI7HG7d-HttnRh8H9xM)
 
+## **Data Preprocessing **
+For our model input, preprocess the datasets to reformat the data. 
+Make sure to download simmc2-data into ./data before training.
+1. Move into 'scripts', run the following command.
+```shell
+python convert.py \
+--input_path_json=<YOUR INPUT PATH JSON> \
+--output_path_predict=<YOUR OUTPATH PREDICT> \
+--output_path_target=<YOUR OUTPATH TARGET> \
+--object_special_token_item2id=item2id.json \
+--scene_json_folder=../data/jsons \
+--image_folder ../data/images \
+```
+For devtest dataset, 
+
+```shell
+python convert.py \
+--input_path_json=../data/simmc2_dials_dstc10_devtest.json \
+--output_path_predict=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
+--output_path_target=../data_object_special/simmc2_dials_dstc10_devtest_target.txt \
+--object_special_token_item2id=item2id.json \
+--scene_json_folder=../data/jsons  \
+--image_folder=../data/images 
+```
+For teststd datset without target(label) file,
+```shell
+python convert.py \
+--input_path_json=../data/simmc2_dials_dstc10_teststd_public.json \
+--output_path_predict=../teststd_data/teststd_predict.txt \
+--object_special_token_item2id=item2id.json \
+--scene_json_folder=../data/jsons  \
+--image_folder=../data/images \
+--with_target 0
+```
+
+
 ## **Train Model**
 Our model is jointly trained with losses from each tasks based on BART.
 
