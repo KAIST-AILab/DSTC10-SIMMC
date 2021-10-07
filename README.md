@@ -1,4 +1,6 @@
-# KAIST-AIPRLab Submission
+# KAIST-AIPRLab DSTC10-SIMMC2 Submission
+
+Our Model is a jointly-learned end-to-end model that can be evaluated for all sub-tasks. We attach task-specific heads on encoder (disambiguation / coreference resolution / retrieval ) and decoder (language-modeling) of BART along with auxiliary heads for additional supervised signals. We use item token vectors instead of features from vision models for representing scene objects. (edited) 
 
 ## Dataset
 ### Overview
@@ -150,6 +152,7 @@ To make the generation-task result file, use the following command in the same d
  ```shell
  python convert_mm_dst_to_response.py \
   --input_path_test=../results/mm_dst_result.txt \
+  --dialog_meta_data=../data_object_special/simmc2_dials_dstc10_devtest_inference_disambiguation.json \
   --output_path_json=../results/dstc10-simmc-devtest-pred-subtask-4-generation.json
 ```
 
