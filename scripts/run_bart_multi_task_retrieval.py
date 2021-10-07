@@ -300,16 +300,22 @@ def main():
             # (num_candi, dim) @ (dim, 1) --> (num_candi, 1)
             dot_product = torch.matmul(response_vec, context_vec.T).squeeze()
             scores = torch.softmax(dot_product, dim=-1)
+            
+            #For teststd
+            top_idx = torch.argmax(scores)
+            response = tokenizer.decode(candidate[top_idx], include_special_token=False).split("<EOS>")[0][3:].strip()
             assert scores.size(0) == 100
             results.append({
                 "dialog_id" : dialog_id[0],
                 "candidate_scores" : [
                     {
                         "turn_id" : turn_id[0],
-                        "scores" : scores.tolist()
+                        "scores" : scores.tolist(),
+                        "response" : response
                     }
                 ]
             })
+
 
     json.dump(results, open(args.path_output, "w"), indent=4)    
     return
