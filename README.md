@@ -134,20 +134,15 @@ or
 ```shell
  python run_bart_multi_task_mm_dst.py \
   --prompts_from_file=../data_object_special/simmc2_dials_dstc10_devtest_predict.txt \
-  --path_output=../results/mm_dst_result.txt \
+  --path_output=../results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --item2id=item2id.json \
   --add_special_tokens=../data_object_special/simmc_special_tokens.json \
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
  
- This script makes the line-by-line *.txt result. To make from line-by-line *.txt to *.json, move into `processing_data`.
- 
- ```shell
- python convert_line_to_json_for_mm_dst.py \
-  --prediction=../results/mm_dst_result.txt \
-  --output=../results/dstc10-simmc-devtest-pred-subtask-3.json
-```
-To make the generation-task result file, use the following command in the same directory. 
+ This script makes the line-by-line *.txt result. 
+
+To make the generation-task result file from `dstc10-simmc-devtest-pred-subtask-3.txt`, use the following command in the directory `preprocessing_data`. 
 
  ```shell
  python convert_mm_dst_to_response.py \
