@@ -72,9 +72,7 @@ python convert.py \
 ```
 Since our model is multi-task trained, the additional target files are needed.
 
-e.g `simmc2_dials_dstc10_train_disambiguation_label.txt`, `simmc2_dials_dstc10_train_response.txt` for disambiguation-task and retrieval-task, respectively.
-
-These are alreadey uploaded in the directory 'data_object_special'.
+e.g `simmc2_dials_dstc10_train_disambiguation_label.txt`, `simmc2_dials_dstc10_train_response.txt` for disambiguation-task and retrieval-task, respectively. These are alreadey uploaded in the directory `data_object_special`.
 
 ## **Train Model**
 Our model is jointly trained with losses from each tasks based on BART.
