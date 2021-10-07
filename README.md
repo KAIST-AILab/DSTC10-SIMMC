@@ -120,7 +120,7 @@ python run_bart_multi_task.py \
   --warmup_steps=8000 
 ```
 ## **Evaluation**
-All tasks can be evaluated with the same model parameters.
+All tasks can be evaluated with the same model parameters. For `teststd` split, input preprocessing instructions and preprocessed dataset can be found under `teststd_data` directory along with `README.md`.
 
 ### **(Subtask 1) Disambiguation Classification**
 ```shell
