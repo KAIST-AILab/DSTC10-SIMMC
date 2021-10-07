@@ -73,7 +73,7 @@ Move to the directory `scripts`.
 ```shell
 python run_bart_multi_task_mm_dst.py \
   --prompts_from_file=../teststd_data/teststd_predict.txt \
-  --path_output=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
+  --path_output=../teststd_results/dstc10-simmc-teststd-pred-subtask-3.txt \
   --item2id=item2id.json \
   --add_special_tokens=../data_object_special/simmc_special_tokens.json \
   --model_dir=<YOUR MODEL CHECKPOINTS>
