@@ -9,20 +9,24 @@ root directory of this source tree.
     The reformatted data is used as input for the GPT-2 based
     DST model baseline.
 """
-import collections
-import json
 import os
-import pickle
+import json
 import argparse
+import collections
+
 from functools import partial
 from itertools import chain
-import ipdb
+
+import imagesize
 import numpy as np
-from PIL import Image
 
 from utils import api
-from utils.metadata import (FASHION_SIZES, FASHION_AVAILABLE_SIZES, FASHION_BRAND, FASHION_PRICE, FASHION_CUSTOMER_REVIEW, 
-                            FURNITURE_BRAND, FURNITURE_PRICE, FURNITURE_CUSTOMER_RATING)
+from utils.metadata import (
+    FASHION_SIZES, FASHION_AVAILABLE_SIZES,
+    FASHION_BRAND, FASHION_PRICE,
+    FASHION_CUSTOMER_REVIEW, FURNITURE_BRAND,
+    FURNITURE_PRICE, FURNITURE_CUSTOMER_RATING
+)
 
 # DSTC style dataset fieldnames
 FIELDNAME_DIALOG = "dialogue"
@@ -159,7 +163,7 @@ def arrange_object_special_tokens(scene_json_folder, image_folder, scene_ids, ob
                     else: image_id = scene_id
                     image_file_name = os.path.join(image_folder, image_id+".png")
                     if os.path.exists(image_file_name):
-                        img_h, img_w = Image.open(image_file_name).size
+                        img_h, img_w = imagesize.get(image_file_name)
                         x1, y1, h, w = obj['bbox']
                         x2, y2 = x1 + w, y1 + h
                         pos_str = '[({:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f})]'.format(x1/img_w -0.5, y1/img_h -0.5, x2/img_w -0.5, y2/img_h -0.5, (x2-x1)*(y2-y1)/(img_w*img_h), z_value/largest_z_value)

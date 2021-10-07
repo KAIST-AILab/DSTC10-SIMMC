@@ -4,8 +4,6 @@ from os.path import isfile, join
 from typing import List, Optional
 
 import attr
-import cv2
-import numpy as np
 from attr import converters, validators
 
 from .util import find_data_dir

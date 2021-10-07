@@ -54,14 +54,14 @@ def parse_flattened_result(to_parse):
     return belief
 
 
-def format_for_dst(predictions: List[Dict]) -> List[Dict]:
+def format_for_dst(predictions: List[str]) -> List[Dict]:
     '''
         Formats model predictions for subtask 2, 3.
 
         NOTE: This follows the format given by the baseline.
 
         Args:
-            predictions <List[Dict]>: predictions outputted by model
+            predictions <List[str]>: predictions outputted by model
         Returns:
             submission <List[Dict]>: submission format
     '''

@@ -1,40 +1,32 @@
-import argparse
-import glob
-import json
-import logging
-import os
-import random
-import copy
 import re
-import shutil
+import os
 import ast
-import ipdb
-from typing import Dict, List, Tuple
-from collections import OrderedDict
-import numpy as np
-from sklearn.manifold import TSNE
+import copy
+import json
+import random
+import argparse
+import logging
+
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
+
+from sklearn.manifold import TSNE
+
 from torch import nn
 from torch.optim import AdamW as torch_AdamW
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset, RandomSampler, SequentialSampler
-import torch.nn.functional as F
-from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 from transformers import (
     AdamW,
-    BartTokenizer, 
     BartTokenizerFast, 
     BartForConditionalGeneration, 
-    BartConfig,
     get_linear_schedule_with_warmup
 )
 from transformers.tokenization_utils import PreTrainedTokenizer
-try:
-    from torch.utils.tensorboard import SummaryWriter
-except ImportError:
-    from tensorboardX import SummaryWriter
+
+
 from utils import api, util
 from utils.metadata import (FASHION_SIZES, FASHION_AVAILABLE_SIZES, FASHION_BRAND, FASHION_COLOR, 
 FASHION_PATTERN, FASHION_SLEEVE_LENGTH, FASHION_ASSET_TYPE, FASHION_TYPE, 

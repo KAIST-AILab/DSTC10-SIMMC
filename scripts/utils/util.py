@@ -14,7 +14,6 @@ def find_data_dir(root_dir_name=""):
         root_dir_name: root directory name of simmc2
         here, data_dir means the original data folder, not folder of preprocessed data
     """
-
     assert root_dir_name, "you must give root_dir_name"
     now_dir = Path(os.getcwd())
     for i in range(7):  # arbitrary number. root folder should be in 7 near depth from current directory.

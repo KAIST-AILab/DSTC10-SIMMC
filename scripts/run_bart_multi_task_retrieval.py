@@ -1,19 +1,20 @@
-import argparse
-import logging
 import os
 import re
+import ast
 import copy
 import json
-import ast
+import argparse
+import logging
+
+from tqdm import tqdm
+
+import torch
 import numpy as np
-from tqdm import tqdm, trange
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset, RandomSampler, SequentialSampler
+
+from torch import nn
+from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from torch.nn.utils.rnn import pad_sequence
 from transformers import BartForConditionalGeneration, BartTokenizerFast
-from utils import api, util
-import torch
-import ipdb
 
 class BoxEmbedding(nn.Module):
     def __init__(self, hidden_dim):
@@ -316,8 +317,9 @@ def main():
                 ]
             })
 
-
     json.dump(results, open(args.path_output, "w"), indent=4)    
     return
+
+
 if __name__ == "__main__":
     main()

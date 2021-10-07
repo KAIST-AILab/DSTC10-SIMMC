@@ -1,19 +1,21 @@
-import argparse
-import logging
 import os
 import re
+import ast
 import copy
 import json
-import ast
-import numpy as np
-from tqdm import tqdm, trange
+import argparse
+import logging
+
+from tqdm import tqdm
+
 import torch
-import torch.nn as nn
+import numpy as np
+
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from torch.nn.utils.rnn import pad_sequence
 from transformers import BartForConditionalGeneration, BartTokenizerFast
+
 from run_bart_multi_task import BoxEmbedding, NoCorefHead, FashionEncoderHead, FurnitureEncoderHead
-import ipdb
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",

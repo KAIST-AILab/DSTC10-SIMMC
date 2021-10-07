@@ -2,11 +2,8 @@
 
 ## Dataset
 ### Overview
-Download the dataset from [repository][simmc2] via git-lfs. 
+Download the dataset from [repository][simmc2] via git-lfs. Put all scene images from `simmc2_scene_images_dstc10_teststd.zip` to the directory `../data/images`. Put all scene jsons from `simmc2_scene_jsons_dstc10_teststd.zip` to the directory `../data/jsons`
 
-Put all scene images from `simmc2_scene_images_dstc10_teststd.zip` to the directory `../data/images`
-
-Put all scene jsons from `simmc2_scene_jsons_dstc10_teststd.zip` to the directory `../data/jsons`
 ```
 |-- images                                                              # scene images
 |   |-- cloth_store_1_1_1.png
@@ -42,39 +39,39 @@ Make sure to download simmc2-data into `./data` before launching the code .
 For teststd datset without target(label) file,
 ```shell
 python convert.py \
---input_path_json=../data/simmc2_dials_dstc10_teststd_public.json \
---output_path_predict=../teststd_data/teststd_predict.txt \
---object_special_token_item2id=item2id.json \
---scene_json_folder=../data/jsons  \
---image_folder=../data/images \
---with_target=0
+  --input_path_json=../data/simmc2_dials_dstc10_teststd_public.json \
+  --output_path_predict=../teststd_data/teststd_predict.txt \
+  --object_special_token_item2id=item2id.json \
+  --scene_json_folder=../data/jsons  \
+  --image_folder=../data/images \
+  --with_target=0
 ```
 
 ## **Evaluation**
 All tasks can be evaluated with the same model parameters.
 
-**1. Disambiguation Task**
+### **(Subtask 1) Disambiguation Classification**
 
 Move to the directory `scripts`.
 
 ```shell
 python run_bart_multi_task_disambiguation.py \
- --path_output=../teststd_results/dstc10-simmc-teststd-pred-subtask-1.json \
- --prompts_from_file=../teststd_data/teststd_predict.txt \
- --disambiguation_file=../teststd_data/teststd_disambiguation_for_inference.json \
- --item2id item2id.json \
- --add_special_tokens=../data_object_special/simmc_special_tokens.json \
- --model_dir=<YOUR MODEL CHECKPOINTS> 
+  --path_output=../teststd_results/dstc10-simmc-teststd-pred-subtask-1.json \
+  --prompts_from_file=../teststd_data/teststd_predict.txt \
+  --disambiguation_file=../teststd_data/teststd_disambiguation_for_inference.json \
+  --item2id item2id.json \
+  --add_special_tokens=../data_object_special/simmc_special_tokens.json \
+  --model_dir=<YOUR MODEL CHECKPOINTS> 
 ```
 
 Disambiguation file, `teststd_disambiguation_for_inference.json` containes just the information about dialogue index and the turn number.
 
-**2. MM_DST & Response Generation Task** 
+### **(Subtask 2 & 3 & 4-a) MM Coreference Resolution & MM-DST & Response Generation Task** 
 
 Move to the directory `scripts`.
 
 ```shell
- python run_bart_multi_task_mm_dst.py \
+python run_bart_multi_task_mm_dst.py \
   --prompts_from_file=../teststd_data/teststd_predict.txt \
   --path_output=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --item2id=item2id.json \
@@ -82,29 +79,27 @@ Move to the directory `scripts`.
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
  
- This script makes the line-by-line *.txt result. 
-
-To make the generation-task result file from `dstc10-simmc-teststd-pred-subtask-3.txt`, use the following command in the directory `preprocessing_data`. 
+This script makes the line-by-line *.txt result. To make the generation-task result file from `dstc10-simmc-teststd-pred-subtask-3.txt`, use the following command in the directory `preprocessing_data`. 
 
  ```shell
- python convert_mm_dst_to_response.py \
+python convert_mm_dst_to_response.py \
   --input_path_test=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --dialog_meta_data=../teststd_data/teststd_disambiguation_for_inference.json \
   --output_path_json=../teststd_results/dstc10-simmc-teststd-pred-subtask-4-generation.json
 ```
 
-**3. Retrieval Task**
+### **(Subtask 4-b) Response Retrieval**
 
 Move to the directory `scripts`.
 
 ```shell
 python run_bart_multi_task_retrieval.py \
---path_output=../teststd_results/dstc10-simmc-teststd-pred-subtask-4-retrieval.json \
---prompts_from_file=../teststd_data/teststd_retrieval.txt \
---candidate_file=../data_object_special/teststd_retrieval.json \
---item2id item2id.json \
---add_special_tokens=../data_object_special/simmc_special_tokens.json \
---model_dir=<YOUR MODEL CHECKPOINTS>
+  --path_output=../teststd_results/dstc10-simmc-teststd-pred-subtask-4-retrieval.json \
+  --prompts_from_file=../teststd_data/teststd_retrieval.txt \
+  --candidate_file=../data_object_special/teststd_retrieval.json \
+  --item2id item2id.json \
+  --add_special_tokens=../data_object_special/simmc_special_tokens.json \
+  --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
 
 `teststd_retrieval.txt` contains the only utterances to be evaluated in the retrieval-task.

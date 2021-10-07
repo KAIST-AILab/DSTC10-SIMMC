@@ -1,6 +1,4 @@
 import json
-import ipdb
-from tqdm import tqdm
 
 FIELDNAME_DIALOG = "dialogue"
 
