@@ -169,7 +169,7 @@ python run_bart_multi_task_retrieval.py \
 --batch_size=24 \
 --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
-Candidate file, `simmc2_dials_dstc10_devtest_retrieval.json.json` contains the reformatted canndidates, dialogue index and the turn number.
+Candidate file, `simmc2_dials_dstc10_devtest_retrieval.json` contains the reformatted canndidates, dialogue index and the turn number.
 
 ## References
 ```
