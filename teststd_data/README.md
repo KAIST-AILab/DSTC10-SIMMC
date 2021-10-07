@@ -83,7 +83,7 @@ This script makes the line-by-line *.txt result. To make the generation-task res
 
  ```shell
 python convert_mm_dst_to_response.py \
-  --input_path_test=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
+  --input_path_text=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
   --dialog_meta_data=../teststd_data/teststd_disambiguation_for_inference.json \
   --output_path_json=../teststd_results/dstc10-simmc-teststd-pred-subtask-4-generation.json
 ```
