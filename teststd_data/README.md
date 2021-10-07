@@ -94,6 +94,7 @@ To make the generation-task result file from `dstc10-simmc-teststd-pred-subtask-
 ```
 
 **3. Retrieval Task**
+
 Move to the directory `scripts`.
 
 ```shell
