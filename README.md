@@ -9,7 +9,7 @@ Install the conda virtual environment by:
 ```shell
 conda env create -f env.yml
 ```
-Download `nltk` `punkt` model (for response generation evaluation) by:
+Download  `nltk`'s `punkt` model (for response generation evaluation) by:
 ```shell
 python -c "import nltk; nltk.download('punkt')"
 ```
@@ -45,10 +45,10 @@ Download the dataset from [repository][simmc2] via git-lfs. Run the script `rear
 ## **Model Parameters**
 Since our model is jointly trained on all tasks, we only need a single model for all subtasks. Download the model parameters by one of the following methods:
 
-1.  Download from Google Drive: [checkpoint-23000.zip](https://drive.google.com/drive/u/0/folders/1P_FTLrxp84gVrUI7HG7d-HttnRh8H9xM)
+1.  Download from Google Drive: [checkpoint-22000.zip](https://drive.google.com/file/d/1ffPkx1bcJrYL7nN88FCXDs5HrUc_SJhJ/view?usp=sharing)
 2.  Download with `gdown`
 ```shell
-gdown --id 1LbSjLz3u5yPdcVQ9NwnKkHAHYqBxYFVZ
+gdown --id 1ffPkx1bcJrYL7nN88FCXDs5HrUc_SJhJ
 ```
 
 ## **Data Preprocessing**
@@ -77,7 +77,7 @@ python convert.py \
   --scene_json_folder=../data/jsons  \
   --image_folder=../data/images 
 ```
-For teststd datset without target(label) file,
+For teststd dataset without target(label) file,
 ```shell
 python convert.py \
   --input_path_json=../data/simmc2_dials_dstc10_teststd_public.json \
@@ -120,11 +120,13 @@ python run_bart_multi_task.py \
   --warmup_steps=8000 
 ```
 ## **Evaluation**
-All tasks can be evaluated with the same model parameters. For `teststd` split, input preprocessing instructions and preprocessed dataset can be found under `teststd_data` directory along with `README.md`.
+All tasks can be evaluated with the same model parameters. 
+
+**NOTE**: For `teststd` split, input preprocessing instructions and preprocessed dataset can be found under `teststd_data` directory along with `README.md`.
 
 ### **(Subtask 1) Disambiguation Classification**
 ```shell
-bash run_bart_multi_task_disambigutaion.sh
+bash run_bart_multi_task_disambiguation.sh
 ```
 or
 
@@ -140,7 +142,7 @@ python run_bart_multi_task_disambiguation.py \
 
 Disambiguation file, `simmc2_dials_dstc10_devtest_inference_disambiguation.json` contains information on dialogue and turn index.
  
-### **(Subtask 2 & 3 & 4-a) MM Coreference Resolution & MM-DST & Response Generation Task** 
+### **(Subtask 2 & 3 & 4-a) MM Coreference Resolution & MM-DST & Response Generation** 
 ```shell
 bash run_bart_multi_task_mm_dst.sh
 ```

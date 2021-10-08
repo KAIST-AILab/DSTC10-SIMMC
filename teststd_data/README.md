@@ -36,7 +36,7 @@ For our model input, preprocess the datasets to reformat the data.
 
 Make sure to download simmc2-data into `./data` before launching the code .
 1. Move into `scripts`, run the following command.
-For teststd datset without target(label) file,
+For teststd dataset without target(label) file,
 ```shell
 python convert.py \
   --input_path_json=../data/simmc2_dials_dstc10_teststd_public.json \
@@ -64,7 +64,7 @@ python run_bart_multi_task_disambiguation.py \
   --model_dir=<YOUR MODEL CHECKPOINTS> 
 ```
 
-Disambiguation file, `teststd_disambiguation_for_inference.json` containes just the information about dialogue index and the turn number.
+Disambiguation file, `teststd_disambiguation_for_inference.json` contains just the information about dialogue index and the turn number.
 
 ### **(Subtask 2 & 3 & 4-a) MM Coreference Resolution & MM-DST & Response Generation Task** 
 
@@ -83,7 +83,7 @@ This script makes the line-by-line *.txt result. To make the generation-task res
 
  ```shell
 python convert_mm_dst_to_response.py \
-  --input_path_text=../teststd_results/dstc10-simmc-devtest-pred-subtask-3.txt \
+  --input_path_text=../teststd_results/dstc10-simmc-teststd-pred-subtask-3.txt \
   --dialog_meta_data=../teststd_data/teststd_disambiguation_for_inference.json \
   --output_path_json=../teststd_results/dstc10-simmc-teststd-pred-subtask-4-generation.json
 ```
@@ -102,5 +102,5 @@ python run_bart_multi_task_retrieval.py \
   --model_dir=<YOUR MODEL CHECKPOINTS>
 ```
 
-`teststd_retrieval.txt` contains the only utterances to be evaluated in the retrieval-task.
-Candidate file, `teststd_retrieval.json` contains the reformatted canndidates, dialogue index and the turn number.
+`teststd_retrieval.txt` contains the turns extracted from `teststd` to be evaluated for the retrieval-task.
+Candidate file, `teststd_retrieval.json` contains the reformatted candidates, dialogue index and the turn number.
