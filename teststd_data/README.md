@@ -104,3 +104,5 @@ python run_bart_multi_task_retrieval.py \
 
 `teststd_retrieval.txt` contains the turns extracted from `teststd` to be evaluated for the retrieval-task.
 Candidate file, `teststd_retrieval.json` contains the reformatted candidates, dialogue index and the turn number.
+
+[simmc2]:https://github.com/facebookresearch/simmc2
