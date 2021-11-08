@@ -163,7 +163,7 @@ def arrange_object_special_tokens(scene_json_folder, image_folder, scene_ids, ob
                     else: image_id = scene_id
                     image_file_name = os.path.join(image_folder, image_id+".png")
                     if os.path.exists(image_file_name):
-                        img_h, img_w = imagesize.get(image_file_name)
+                        img_w, img_h = imagesize.get(image_file_name)
                         x1, y1, h, w = obj['bbox']
                         x2, y2 = x1 + w, y1 + h
                         pos_str = '[({:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f})]'.format(x1/img_w -0.5, y1/img_h -0.5, x2/img_w -0.5, y2/img_h -0.5, (x2-x1)*(y2-y1)/(img_w*img_h), z_value/largest_z_value)
