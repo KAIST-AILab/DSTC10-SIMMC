@@ -1,0 +1,84 @@
+beige 0
+black 1
+black, blue 2
+black, brown 3
+black, green 4
+black, grey 5
+black, olive 6
+black, orange 7
+black, pink 8
+black, red 9
+black, red, white 10
+black, white 11
+black, yellow 12
+blue 13
+blue, green 14
+blue, grey 15
+blue, maroon, white 16
+blue, white 17
+brown 18
+brown, grey 19
+brown, white 20
+brown, yellow 21
+dark blue 22
+dark blue, dark green 23
+dark brown 24
+dark green 25
+dark grey 26
+dark pink 27
+dark pink, white 28
+dark red 29
+dark violet 30
+dark yellow 31
+dirty green 32
+dirty grey 33
+golden 34
+green 35
+green, pink, violet 36
+green, white 37
+grey 38
+grey, red 39
+grey, white 40
+light blue 41
+light blue, light green 42
+light grey 43
+light orange 44
+light pink 45
+light red 46
+maroon 47
+olive 48
+olive, white 49
+orange 50
+orange, purple 51
+pink 52
+pink, white 53
+purple 54
+red 55
+red, violet, white 56
+red, white 57
+red, white, yellow 58
+violet 59
+white 60
+white, yellow 61
+yellow 62
+yellow, black 63
+white, black 64
+maroon, white, blue 65
+pink, black 66
+grey, black 67
+brown, black 68
+olive, black 69
+yellow, brown 70
+grey, brown 71
+white, black, red 72
+dark green, dark blue 73
+green, violet, pink 74
+white, grey 75
+grey, blue 76
+white, red, violet 77
+blue, black 78
+green, black 79
+red, grey 80
+red, black 81
+yellow, white 82
+white, blue 83

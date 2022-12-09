@@ -1,8 +1,9 @@
-# KAIST-AIPRLab DSTC10-SIMMC2 Submission
+# Learning to Embed Multi-Modal Contexts forSituated Conversational Agents
 
 ## Overview
 
-Our Model is a jointly-learned end-to-end model that can be evaluated for all sub-tasks. We attach task-specific heads on encoder (disambiguation / coreference resolution / retrieval ) and decoder (language-modeling) of BART along with auxiliary heads for additional supervision signals. Moreover, we align the item vectors with their respective attribute tokens in the BART token embedding. We use item token vectors instead of features from vision models for representing scene objects.
+Anonymized github repository for NAACL 2022 submission
+
 
 ## **Environment**
 Install the conda virtual environment by:
@@ -94,7 +95,7 @@ e.g `simmc2_dials_dstc10_train_disambiguation_label.txt`, `simmc2_dials_dstc10_t
 ## **Training**
 Our model is jointly trained with losses from each tasks based on BART.
 
-Make sure to download simmc2-data into `./data` before training. 
+Make sure to download simmc2-data into `./data` before training: https://github.com/facebookresearch/simmc2/tree/main/data
 1. Move into `scripts`, Run training.
 
 ```shell
@@ -141,7 +142,7 @@ python run_bart_multi_task_disambiguation.py \
 ```
 
 Disambiguation file, `simmc2_dials_dstc10_devtest_inference_disambiguation.json` contains information on dialogue and turn index.
- 
+
 ### **(Subtask 2 & 3 & 4-a) MM Coreference Resolution & MM-DST & Response Generation** 
 ```shell
 bash run_bart_multi_task_mm_dst.sh

@@ -1,0 +1,6 @@
+ 0
+full 1
+half 2
+long 3
+short 4
+sleeveless 5

@@ -1,0 +1,36 @@
+camouflage 0
+canvas 1
+cargo 2
+checkered 3
+checkered, plain 4
+denim 5
+design 6
+diamonds 7
+dotted 8
+floral 9
+heavy stripes 10
+heavy vertical stripes 11
+holiday 12
+horizontal stripes 13
+knit 14
+leafy design 15
+leapard print 16
+leather 17
+light spots 18
+light stripes 19
+light vertical stripes 20
+multicolored 21
+plaid 22
+plain 23
+plain with stripes on side 24
+radiant 25
+spots 26
+star design 27
+streaks 28
+stripes 29
+text 30
+twin colors 31
+velvet 32
+vertical design 33
+vertical stripes 34
+vertical striples 35

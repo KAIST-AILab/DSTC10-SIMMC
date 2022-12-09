@@ -1,0 +1,9 @@
+white 0
+brown 1
+green 2
+blue 3
+red 4
+black 5
+black and white 6
+wooden 7
+grey 8

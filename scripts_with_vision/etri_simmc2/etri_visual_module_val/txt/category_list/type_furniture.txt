@@ -1,0 +1,10 @@
+Bed 0
+Shelves 1
+EndTable 2
+Chair 3
+AreaRug 4
+CouchChair 5
+Sofa 6
+CoffeeTable 7
+Lamp 8
+Table 9

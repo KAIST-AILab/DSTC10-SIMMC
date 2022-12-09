@@ -1,0 +1,11 @@
+blouse_hanging 0
+dress_hanging 1
+hat 2
+jacket_display 3
+jacket_hanging 4
+shoes 5
+skirt 6
+trousers_display 7
+tshirt_display 8
+tshirt_folded 9
+tshirt_hanging 10

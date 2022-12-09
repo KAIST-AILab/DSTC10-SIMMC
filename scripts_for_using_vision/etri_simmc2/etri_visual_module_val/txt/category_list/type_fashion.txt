@@ -1,0 +1,18 @@
+blouse 0
+coat 1
+dress 2
+hat 3
+hoodie 4
+jacket 5
+jeans 6
+joggers 7
+shirt 8
+shirt, vest 9
+shoes 10
+skirt 11
+suit 12
+sweater 13
+tank top 14
+trousers 15
+tshirt 16
+vest 17
